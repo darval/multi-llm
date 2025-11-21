@@ -1,6 +1,6 @@
 [package]
 name = "multi-llm"
-version = "0.1.0"
+version = "0.1.2"
 edition = "2021"
 rust-version = "1.75"
 description = "Unified multi-provider LLM client with support for OpenAI, Anthropic, Ollama, and LMStudio"
@@ -11,7 +11,7 @@ categories = ["api-bindings", "asynchronous"]
 authors = ["Your Name <your.email@example.com>"]
 
 [dependencies]
-# Core dependencies - NO MORE mystory-core or mystory-logging
+# Core dependencies
 # Async and error handling
 anyhow = "1.0"
 async-trait = "0.1"
@@ -34,7 +34,7 @@ governor = "0.10"  # Rate limiting
 tower = { version = "0.5", features = ["timeout", "limit"] }
 
 # Token counting
-tiktoken-rs = "0.7"
+tiktoken-rs = "0.9.1"
 
 # HTTP streaming support
 tokio-stream = "0.1"
