@@ -20,10 +20,12 @@
 
 use super::super::types::*;
 use super::super::utils::*;
+use crate::core_types::executor::{
+    ExecutorLLMConfig, ExecutorResponseFormat, ExecutorTool, ToolChoice,
+};
+use crate::core_types::messages::MessageAttributes;
 use crate::{MessageContent, MessageRole, UnifiedMessage};
 use chrono::Utc;
-use crate::core_types::executor::{ExecutorLLMConfig, ExecutorResponseFormat, ExecutorTool, ToolChoice};
-use crate::core_types::messages::MessageAttributes;
 use serde_json::json;
 
 // ============================================================================

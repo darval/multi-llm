@@ -1,18 +1,18 @@
 # multi-llm
 
-> **Status**: Phase 1 Complete - Extraction from myStory ✅
+> **Status**: Phase 1 Complete - Extraction as a standalone library ✅
 > **Next**: Phase 2 - Cleanup & Generalization (see [PHASE2_PLAN.md](PHASE2_PLAN.md))
 
 Unified multi-provider LLM client with support for OpenAI, Anthropic, Ollama, and LMStudio.
 
 ## Current State
 
-This library has been **successfully extracted** from the myStory project and is **~95% complete** as a standalone crate.
+This library has been **successfully extracted** as a standalone library and is **~95% complete** as a standalone crate.
 
 **What Works**:
-- ✅ All source code copied from mystory-llm
-- ✅ Core types extracted from mystory-core
-- ✅ Dependencies updated (no more mystory-core or mystory-logging)
+- ✅ All source code copied from the original codebase
+- ✅ Core types extracted as core types
+- ✅ Dependencies updated (fully standalone dependencies)
 - ✅ Most imports updated
 - ✅ Logging module created
 
@@ -57,7 +57,7 @@ See **[PHASE2_PLAN.md](PHASE2_PLAN.md)** for complete details.
 ```
 multi-llm/
 ├── src/
-│   ├── core_types/        # Extracted types from mystory-core (Phase 2: refactor)
+│   ├── core_types/        # Extracted types as core types (Phase 2: refactor)
 │   │   ├── errors.rs      # Error traits and types
 │   │   ├── messages.rs    # ⭐ Unified message architecture (PRIMARY FEATURE)
 │   │   ├── executor.rs    # Executor types and LLM provider trait
@@ -74,14 +74,14 @@ multi-llm/
 ├── tests/                 # Integration tests
 ├── EXTRACTION.md          # ✅ Phase 1 completion summary
 ├── PHASE2_PLAN.md         # 📋 Detailed Phase 2 tasks
-└── PHASE3_PLAN.md         # 📋 Integration back into myStory
+└── PHASE3_PLAN.md         # 📋 Future integration plans
 ```
 
 ## Documentation
 
 - **[EXTRACTION.md](EXTRACTION.md)** - What was done in Phase 1, current state, notes for Phase 2
 - **[PHASE2_PLAN.md](PHASE2_PLAN.md)** - Detailed plan for cleanup and generalization
-- **[PHASE3_PLAN.md](PHASE3_PLAN.md)** - Plan for integrating back into myStory
+- **[PHASE3_PLAN.md](PHASE3_PLAN.md)** - Optional integration guide for parent projects
 
 ## Getting Started (Phase 2)
 
@@ -140,7 +140,7 @@ let client = UnifiedLLMClient::new(config)?;
 
 ## Testing Strategy
 
-**Unit Tests**: `cargo test --lib` (~2305 tests from mystory-llm)
+**Unit Tests**: `cargo test --lib` (~2305 tests from the original codebase)
 **Integration Tests**: `cargo test --tests` (~107 tests, some require Docker)
 
 Some integration tests are marked with `#[ignore]` and require external services:
@@ -151,10 +151,10 @@ cargo test -- --ignored
 
 ## Origin
 
-This library was extracted from the [myStory](../mystory) project to be a standalone, reusable multi-provider LLM client. The extraction was research-driven using Serena tools to identify minimal dependencies while maintaining semantic compatibility.
+This library provides standalone, reusable multi-provider LLM client. The extraction was research-driven using Serena tools to identify minimal dependencies while maintaining semantic compatibility.
 
 **Extraction Date**: 2025-01-21
-**Original Crate**: `mystory-llm`
+
 **Phase 1**: ✅ Complete
 **Phase 2**: 🚧 In Progress
 

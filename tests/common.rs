@@ -1,4 +1,4 @@
-//! Test helper utilities for mystory-llm tests
+//! Test helper utilities for multi-llm tests
 //!
 //! This module provides reusable test fixtures and helper functions
 //! that are shared across multiple test modules.
@@ -9,14 +9,16 @@
 #![allow(dead_code)]
 
 use chrono::Utc;
-use crate::core_types::executor::{ExecutorLLMConfig, ExecutorTool};
-use crate::core_types::messages::{MessageContent, MessageRole, UnifiedLLMRequest, UnifiedMessage};
-use mystory_llm::config::{
+use multi_llm::config::{
     AnthropicConfig, DefaultLLMParams, LLMConfig, LMStudioConfig, OllamaConfig, OpenAIConfig,
 };
-use mystory_llm::providers::{AnthropicProvider, LMStudioProvider, OllamaProvider, OpenAIProvider};
-use mystory_llm::retry::RetryPolicy;
-use mystory_llm::tokens::{AnthropicTokenCounter, OpenAITokenCounter, TokenCounter};
+use multi_llm::core_types::executor::{ExecutorLLMConfig, ExecutorTool};
+use multi_llm::core_types::messages::{
+    MessageContent, MessageRole, UnifiedLLMRequest, UnifiedMessage,
+};
+use multi_llm::providers::{AnthropicProvider, LMStudioProvider, OllamaProvider, OpenAIProvider};
+use multi_llm::retry::RetryPolicy;
+use multi_llm::tokens::{AnthropicTokenCounter, OpenAITokenCounter, TokenCounter};
 use std::sync::Arc;
 use std::time::Duration;
 use wiremock::ResponseTemplate;
@@ -38,7 +40,7 @@ use wiremock::ResponseTemplate;
 ///
 /// Panics if the provider name is not recognized (test failure is appropriate).
 pub fn create_test_config(provider_name: &str) -> LLMConfig {
-    let provider: Box<dyn mystory_llm::config::ProviderConfig> = match provider_name {
+    let provider: Box<dyn multi_llm::config::ProviderConfig> = match provider_name {
         "anthropic" => Box::new(AnthropicConfig {
             api_key: Some("test-anthropic-key".to_string()),
             base_url: "https://api.anthropic.com".to_string(),
@@ -129,7 +131,7 @@ pub fn create_test_token_counter_with_limit(
     provider_name: &str,
     max_tokens: u32,
 ) -> Arc<dyn TokenCounter> {
-    use mystory_llm::tokens::TokenCounterFactory;
+    use multi_llm::tokens::TokenCounterFactory;
 
     let model = match provider_name {
         "anthropic" => "claude-3-5-sonnet-20241022",

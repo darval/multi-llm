@@ -1,4 +1,4 @@
-//! Executor types for LLM operations (extracted from mystory-core)
+//! Executor types and traits for LLM provider abstraction
 //!
 //! These types define the contract between the executor and LLM providers.
 //! Phase 2 will review ownership - this trait should probably live in multi-llm.

@@ -18,12 +18,12 @@
 //!   - Network failure handling
 //!   - Invalid response body handling
 
-use mystory_llm::error::LlmError;
-use mystory_llm::providers::openai_shared::http::OpenAICompatibleClient;
-use mystory_llm::providers::openai_shared::types::{
+use multi_llm::error::LlmError;
+use multi_llm::providers::openai_shared::http::OpenAICompatibleClient;
+use multi_llm::providers::openai_shared::types::{
     OpenAIChoice, OpenAIRequest, OpenAIResponse, OpenAIResponseMessage, OpenAIUsage,
 };
-use mystory_llm::retry::RetryPolicy;
+use multi_llm::retry::RetryPolicy;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 

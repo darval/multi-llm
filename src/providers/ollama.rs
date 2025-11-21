@@ -7,16 +7,16 @@ use super::openai_shared::{
     http::OpenAICompatibleClient, utils::apply_config_to_request, OpenAIRequest, OpenAIResponse,
 };
 use crate::config::{DefaultLLMParams, OllamaConfig};
-use crate::log_debug;
-use crate::error::{LlmError, LlmResult};
-use crate::response_parser::ResponseParser;
+use crate::core_types::event_types;
+use crate::core_types::events::{BusinessEvent, EventScope};
 use crate::core_types::executor::{
     ExecutorLLMConfig, ExecutorLLMProvider, ExecutorLLMResponse, ExecutorTokenUsage,
     LLMBusinessEvent, ToolCallingRound,
 };
-use crate::core_types::events::{BusinessEvent, EventScope};
 use crate::core_types::messages::{MessageContent, MessageRole, UnifiedLLMRequest, UnifiedMessage};
-use crate::core_types::event_types;
+use crate::error::{LlmError, LlmResult};
+use crate::log_debug;
+use crate::response_parser::ResponseParser;
 use std::time::Instant;
 
 /// Ollama local provider implementation

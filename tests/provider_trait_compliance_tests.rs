@@ -33,7 +33,7 @@
 
 mod common;
 use common::*;
-use crate::core_types::executor::ExecutorLLMProvider;
+use multi_llm::core_types::executor::ExecutorLLMProvider;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 

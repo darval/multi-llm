@@ -36,7 +36,7 @@
 
 use serde::{Deserialize, Serialize};
 
-// Core types (extracted from mystory-core for Phase 1)
+// Core types for unified LLM abstraction
 // Phase 2 will refactor these into proper public API modules
 pub mod core_types;
 
@@ -68,17 +68,34 @@ pub use tokens::{AnthropicTokenCounter, OpenAITokenCounter, TokenCounter, TokenC
 
 // Re-export core types (unified messages and executor types)
 pub use core_types::{
-    // Messages - the core unified message architecture
-    MessageAttributes, MessageCategory, MessageContent, MessageRole, UnifiedLLMRequest,
-    UnifiedMessage,
-    // Executor types
-    ExecutorLLMConfig, ExecutorLLMProvider, ExecutorLLMResponse, ExecutorResponseFormat,
-    ExecutorTool, ExecutorToolCall, ExecutorToolResult, ExecutorTokenUsage, LLMBusinessEvent,
-    ToolCallingRound, ToolChoice,
+    event_types,
     // Events
-    BusinessEvent, EventScope, event_types,
+    BusinessEvent,
     // Errors
-    ErrorCategory, ErrorSeverity, MyStoryError, UserErrorCategory,
+    ErrorCategory,
+    ErrorSeverity,
+    EventScope,
+    // Executor types
+    ExecutorLLMConfig,
+    ExecutorLLMProvider,
+    ExecutorLLMResponse,
+    ExecutorResponseFormat,
+    ExecutorTokenUsage,
+    ExecutorTool,
+    ExecutorToolCall,
+    ExecutorToolResult,
+    LLMBusinessEvent,
+    // Messages - the core unified message architecture
+    MessageAttributes,
+    MessageCategory,
+    MessageContent,
+    MessageRole,
+    MyStoryError,
+    ToolCallingRound,
+    ToolChoice,
+    UnifiedLLMRequest,
+    UnifiedMessage,
+    UserErrorCategory,
 };
 
 // Re-export LLM-specific types
@@ -94,7 +111,7 @@ pub use logging::{log_debug, log_error, log_info, log_trace, log_warn};
 pub mod types {
     use super::*;
 
-    // Message types now come from mystory-core - removed duplicates
+    // Message types from core_types module
 
     // REMOVED: Tool type - now using crate::core_types::executor::ExecutorTool
     // This consolidates tool types following Rusty's three-layer architecture

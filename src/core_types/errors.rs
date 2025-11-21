@@ -1,8 +1,8 @@
-//! Error types extracted from mystory-core
+//! Error categorization and severity traits
 //!
 //! Phase 2 will review whether MyStoryError trait is needed or if standard Error is sufficient.
 
-/// Base trait for categorized errors (from mystory-core)
+/// Base trait for categorized errors with severity and user messaging
 pub trait MyStoryError: std::error::Error + Send + Sync + 'static {
     /// Error category for routing and handling decisions
     fn category(&self) -> ErrorCategory;

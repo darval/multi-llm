@@ -1,6 +1,6 @@
 //! Unit Tests for ExecutorLLMResponse Structured Response Conversion
 //!
-//! UNIT UNDER TEST: ExecutorLLMResponse (concrete type in mystory-llm::types)
+//! UNIT UNDER TEST: ExecutorLLMResponse conversion and validation
 //!
 //! BUSINESS RESPONSIBILITY:
 //!   - Convert raw LLM JSON responses to typed StructuredResponse objects

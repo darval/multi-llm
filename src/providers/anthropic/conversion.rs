@@ -4,8 +4,8 @@ use super::types::{
     AnthropicContent, AnthropicContentBlock, AnthropicMessage, CacheControl, SystemMessage,
 };
 use crate::config::AnthropicConfig;
-use crate::log_debug;
 use crate::core_types::messages::{MessageContent, MessageRole, UnifiedMessage};
+use crate::log_debug;
 
 /// Convert unified messages to Anthropic format, applying caching properly per Anthropic hierarchy
 pub(super) fn transform_unified_messages(

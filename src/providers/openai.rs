@@ -7,15 +7,15 @@ use super::openai_shared::{
 };
 // Removed LLMClientCore import - providers now implement their own methods directly
 use crate::config::{DefaultLLMParams, OpenAIConfig};
-use crate::{log_debug, log_error};
-use crate::error::{LlmError, LlmResult};
-use crate::response_parser::ResponseParser;
+use crate::core_types::events::{BusinessEvent, EventScope};
 use crate::core_types::executor::{
     ExecutorLLMConfig, ExecutorLLMProvider, ExecutorLLMResponse, ExecutorTokenUsage,
     LLMBusinessEvent, ToolCallingRound,
 };
-use crate::core_types::events::{BusinessEvent, EventScope};
 use crate::core_types::messages::{MessageContent, MessageRole, UnifiedLLMRequest, UnifiedMessage};
+use crate::error::{LlmError, LlmResult};
+use crate::response_parser::ResponseParser;
+use crate::{log_debug, log_error};
 
 use crate::core_types::event_types;
 use std::time::Instant;

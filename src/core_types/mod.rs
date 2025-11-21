@@ -1,6 +1,6 @@
-//! Core types extracted from mystory-core for standalone operation
+//! Core types for unified multi-provider LLM abstraction
 //!
-//! These types maintain identical semantics to mystory-core to enable Phase 3 migration.
+//! Provides provider-agnostic message formats, executor traits, and error types.
 //! Phase 2 will review and refactor these into a more generic, standalone system.
 //!
 //! ## Organization
@@ -10,8 +10,8 @@
 //! - `events` - Business event logging types
 
 pub mod errors;
-pub mod executor;
 pub mod events;
+pub mod executor;
 pub mod messages;
 
 // Re-export commonly used types
@@ -27,5 +27,5 @@ pub use messages::{
     UnifiedMessage,
 };
 
-/// Result type alias (from mystory-core)
+/// Result type alias for core operations
 pub type Result<T> = std::result::Result<T, anyhow::Error>;

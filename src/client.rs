@@ -1,8 +1,4 @@
 use crate::config::{AnthropicConfig, LLMConfig, LMStudioConfig, OllamaConfig, OpenAIConfig};
-use crate::{log_debug, log_error};
-use crate::error::{LlmError, LlmResult};
-use crate::providers::{AnthropicProvider, LMStudioProvider, OllamaProvider, OpenAIProvider};
-use async_trait::async_trait;
 use crate::core_types::{
     executor::{
         ExecutorLLMConfig, ExecutorLLMProvider, ExecutorLLMResponse, ExecutorResponseFormat,
@@ -10,10 +6,11 @@ use crate::core_types::{
     },
     messages::UnifiedLLMRequest,
 };
-// StructuredSystemPrompt methods are now directly on the type in mystory-core
+use crate::error::{LlmError, LlmResult};
+use crate::providers::{AnthropicProvider, LMStudioProvider, OllamaProvider, OpenAIProvider};
+use crate::{log_debug, log_error};
+use async_trait::async_trait;
 use std::time::Instant;
-
-// UnifiedLLMClient will directly implement ExecutorLLMProvider from mystory-core
 
 /// Internal provider enum for UnifiedLLMClient
 enum LLMProvider {
@@ -24,7 +21,7 @@ enum LLMProvider {
 }
 
 /// Unified LLM client that implements ExecutorLLMProvider
-/// This is the primary interface for LLM operations in the myStory system
+/// This is the primary interface for multi-provider LLM operations
 pub struct UnifiedLLMClient {
     provider: LLMProvider,
     model: String,

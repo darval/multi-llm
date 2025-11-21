@@ -1,4 +1,4 @@
-// Test modules for mystory-llm crate
+// Test modules for multi-llm crate
 //
 // Test organization follows the template pattern where each source file
 // has a corresponding test file that focuses on business logic verification.
@@ -27,5 +27,5 @@ pub mod client;
 pub mod response_parser_tests;
 pub mod retry;
 
-// NOTE: Token tests moved to integration tests (mystory-llm/tests/token_integration_tests.rs)
+// NOTE: Token tests are in integration tests (tests/token_integration_tests.rs)
 // They load external tokenizer models and are slow, so they don't belong in unit tests

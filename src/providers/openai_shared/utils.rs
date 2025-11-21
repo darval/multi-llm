@@ -7,11 +7,11 @@
 #![allow(clippy::unwrap_used)]
 
 use super::types::*;
+use crate::core_types::executor::{ExecutorLLMConfig, ExecutorTool, ExecutorToolCall, ToolChoice};
 use crate::error::{LlmError, LlmResult};
+use crate::log_error;
 use crate::retry::{RetryExecutor, RetryPolicy};
 use crate::{MessageContent, MessageRole, UnifiedMessage};
-use crate::core_types::executor::{ExecutorLLMConfig, ExecutorTool, ExecutorToolCall, ToolChoice};
-use crate::log_error;
 use regex::Regex;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use serde_json::Value;

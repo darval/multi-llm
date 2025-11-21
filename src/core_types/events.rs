@@ -1,9 +1,8 @@
-//! Business event types extracted from mystory-core
+//! Business event types for LLM operations
 //!
-//! Phase 2 will review whether these should be:
-//! - Optional via feature flag
-//! - Generalized for non-mystory use
-//! - Provided as a trait for consumers to implement
+//! These events track LLM interactions for observability and debugging.
+//! Future versions will make these optional via feature flag or provide
+//! a trait interface for custom implementations.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

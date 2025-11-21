@@ -6,5 +6,5 @@
 mod caching;
 mod conversion;
 
-// NOTE: Provider HTTP tests moved to mystory-llm/tests/anthropic_provider_integration_tests.rs
+// NOTE: Provider HTTP tests are in tests/anthropic_provider_integration_tests.rs
 // These tests use MockServer and are slow, so they don't belong in unit tests

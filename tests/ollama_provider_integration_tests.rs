@@ -19,14 +19,14 @@
 //!   - Message conversion and tool handling
 
 use chrono::Utc;
-use crate::core_types::executor::ExecutorLLMProvider;
-use crate::core_types::messages::{
+use multi_llm::config::{DefaultLLMParams, OllamaConfig};
+use multi_llm::core_types::executor::ExecutorLLMProvider;
+use multi_llm::core_types::messages::{
     MessageAttributes, MessageCategory, MessageContent, MessageRole, UnifiedLLMRequest,
     UnifiedMessage,
 };
-use mystory_llm::config::{DefaultLLMParams, OllamaConfig};
-use mystory_llm::providers::ollama::OllamaProvider;
-use mystory_llm::retry::RetryPolicy;
+use multi_llm::providers::ollama::OllamaProvider;
+use multi_llm::retry::RetryPolicy;
 use std::collections::HashMap;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};

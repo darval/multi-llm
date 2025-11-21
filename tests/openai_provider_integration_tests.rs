@@ -20,14 +20,14 @@
 //!   - Message conversion and tool handling
 
 use chrono::Utc;
-use crate::core_types::executor::ExecutorLLMProvider;
-use crate::core_types::messages::{
+use multi_llm::config::{DefaultLLMParams, OpenAIConfig};
+use multi_llm::core_types::executor::ExecutorLLMProvider;
+use multi_llm::core_types::messages::{
     MessageAttributes, MessageCategory, MessageContent, MessageRole, UnifiedLLMRequest,
     UnifiedMessage,
 };
-use mystory_llm::config::{DefaultLLMParams, OpenAIConfig};
-use mystory_llm::providers::openai::OpenAIProvider;
-use mystory_llm::retry::RetryPolicy;
+use multi_llm::providers::openai::OpenAIProvider;
+use multi_llm::retry::RetryPolicy;
 use std::collections::HashMap;
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};

@@ -39,7 +39,7 @@
 
 // Re-export test helpers for convenience
 
-// NOTE: HTTP integration tests moved to mystory-llm/tests/ directory
+// NOTE: HTTP integration tests are in tests/ directory
 // These tests use MockServer and are slow, so they don't belong in unit tests:
 // - trait_compliance.rs → tests/provider_trait_compliance_tests.rs
 // - openai_provider.rs → tests/openai_provider_integration_tests.rs
