@@ -1,0 +1,57 @@
+[package]
+name = "multi-llm"
+version = "0.1.0"
+edition = "2021"
+description = "Unified multi-provider LLM client with support for OpenAI, Anthropic, Ollama, and LMStudio"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/yourusername/multi-llm"
+keywords = ["llm", "openai", "anthropic", "ai", "unified"]
+categories = ["api-bindings", "asynchronous"]
+authors = ["Your Name <your.email@example.com>"]
+
+[dependencies]
+# Core dependencies - NO MORE mystory-core or mystory-logging
+# Async and error handling
+anyhow = "1.0"
+async-trait = "0.1"
+thiserror = "2.0"
+tokio = { version = "1", features = ["full"] }
+
+# HTTP client for LLM APIs
+reqwest = { version = "~0.12.22", features = ["json", "stream", "rustls-tls"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Logging - now direct dependency
+tracing = "0.1"
+
+# Retry and resilience
+backoff = { version = "0.4", features = ["tokio"] }
+governor = "0.10"  # Rate limiting
+tower = { version = "0.5", features = ["timeout", "limit"] }
+
+# Token counting
+tiktoken-rs = "0.7"
+
+# HTTP streaming support
+tokio-stream = "0.1"
+futures-util = "0.3"
+
+# Retry and jitter
+fastrand = "2.0"
+
+# Custom format parsing
+regex = "1.11"
+once_cell = "1.20"
+
+# For messages and events
+uuid = { version = "1.11", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full", "test-util"] }
+mockall = "0.13"
+wiremock = "0.6"  # For HTTP mocking
+serial_test = "3.2"
