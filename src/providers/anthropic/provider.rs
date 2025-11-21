@@ -3,6 +3,7 @@
 use super::caching;
 use super::conversion;
 use super::types::{AnthropicContentBlock, AnthropicRequest, AnthropicResponse, SystemField};
+use crate::{log_debug, log_error, log_warn};
 use crate::config::{AnthropicConfig, DefaultLLMParams};
 use crate::error::{LlmError, LlmResult};
 use crate::retry::RetryExecutor;

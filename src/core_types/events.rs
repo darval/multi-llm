@@ -23,14 +23,33 @@ pub struct BusinessEvent {
 }
 
 impl BusinessEvent {
-    /// Create a new business event
-    pub fn new(event_type: impl Into<String>, metadata: serde_json::Value) -> Self {
+    /// Create a new business event with the given type
+    pub fn new(event_type: impl Into<String>) -> Self {
         Self {
             id: Uuid::new_v4(),
             event_type: event_type.into(),
-            metadata,
+            metadata: serde_json::Value::Object(serde_json::Map::new()),
             created_at: Utc::now(),
         }
+    }
+
+    /// Add metadata to this event
+    ///
+    /// # Example
+    /// ```
+    /// use multi_llm::BusinessEvent;
+    ///
+    /// let event = BusinessEvent::new("test_event")
+    ///     .with_metadata("key1", "value1")
+    ///     .with_metadata("count", 42);
+    /// ```
+    pub fn with_metadata(mut self, key: impl Into<String>, value: impl Serialize) -> Self {
+        if let Ok(v) = serde_json::to_value(value) {
+            if let Some(obj) = self.metadata.as_object_mut() {
+                obj.insert(key.into(), v);
+            }
+        }
+        self
     }
 }
 

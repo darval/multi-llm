@@ -7,7 +7,7 @@
 //! - Configurable timeout: 30s request, 5m total operation
 
 use crate::error::{LlmError, LlmResult};
-use crate::{log_debug, log_error, log_info, log_warn};
+use crate::{log_debug, log_error, log_warn};
 
 use std::time::{Duration, Instant};
 use tokio::time::sleep;

@@ -2,6 +2,7 @@
 name = "multi-llm"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.75"
 description = "Unified multi-provider LLM client with support for OpenAI, Anthropic, Ollama, and LMStudio"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/yourusername/multi-llm"

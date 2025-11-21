@@ -1,5 +1,5 @@
 use crate::config::{AnthropicConfig, LLMConfig, LMStudioConfig, OllamaConfig, OpenAIConfig};
-use crate::{log_debug, log_error, log_info, log_warn};
+use crate::{log_debug, log_error};
 use crate::error::{LlmError, LlmResult};
 use crate::providers::{AnthropicProvider, LMStudioProvider, OllamaProvider, OpenAIProvider};
 use async_trait::async_trait;
@@ -8,7 +8,6 @@ use crate::core_types::{
         ExecutorLLMConfig, ExecutorLLMProvider, ExecutorLLMResponse, ExecutorResponseFormat,
         LLMBusinessEvent, ToolCallingRound,
     },
-    log_debug, log_error,
     messages::UnifiedLLMRequest,
 };
 // StructuredSystemPrompt methods are now directly on the type in mystory-core

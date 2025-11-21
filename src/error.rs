@@ -1,5 +1,6 @@
 
-use crate::{log_debug, log_error, log_info, log_warn};
+use crate::{log_error, log_warn};
+use crate::{MyStoryError, ErrorCategory, ErrorSeverity};
 use thiserror::Error;
 
 /// Result type for LLM operations  

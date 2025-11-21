@@ -4,7 +4,7 @@
 //! LLM output formats while ensuring structured responses.
 
 use crate::error::{LlmError, LlmResult};
-use crate::{log_debug, log_error, log_info, log_warn};
+use crate::{log_debug, log_warn};
 
 use serde_json::Value;
 

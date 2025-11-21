@@ -46,6 +46,12 @@ See **[PHASE2_PLAN.md](PHASE2_PLAN.md)** for complete details.
 - **Tool Calling**: First-class function/tool calling support
 - **Resilience**: Built-in retry logic, rate limiting, and error handling
 
+## Compatibility
+
+- **Rust Edition**: 2021
+- **MSRV**: Rust 1.75 or later
+- **Edition Compatibility**: Works with projects using any Rust edition (2015, 2018, 2021, 2024)
+
 ## Project Structure
 
 ```

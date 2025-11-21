@@ -7,7 +7,7 @@ use super::openai_shared::{
 };
 // Removed LLMClientCore import - providers now implement their own methods directly
 use crate::config::{DefaultLLMParams, OpenAIConfig};
-use crate::{log_debug, log_error, log_info, log_warn};
+use crate::{log_debug, log_error};
 use crate::error::{LlmError, LlmResult};
 use crate::response_parser::ResponseParser;
 use crate::core_types::executor::{
