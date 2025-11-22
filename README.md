@@ -1,171 +1,256 @@
 # multi-llm
 
-> **Status**: Phase 1 Complete - Extraction as a standalone library ✅
-> **Next**: Phase 2 - Cleanup & Generalization (see [PHASE2_PLAN.md](PHASE2_PLAN.md))
+> Unified multi-provider LLM client library for Rust
 
-Unified multi-provider LLM client with support for OpenAI, Anthropic, Ollama, and LMStudio.
+[![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
+[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE)
 
-## Current State
+A type-safe, async-first Rust library providing a unified interface for multiple Large Language Model providers. Write your code once, switch providers with a configuration change.
 
-This library has been **successfully extracted** as a standalone library and is **~95% complete** as a standalone crate.
+## Features
 
-**What Works**:
-- ✅ All source code copied from the original codebase
-- ✅ Core types extracted as core types
-- ✅ Dependencies updated (fully standalone dependencies)
-- ✅ Most imports updated
-- ✅ Logging module created
+- 🔄 **Multi-Provider Support**: OpenAI, Anthropic, Ollama, LM Studio
+- 🎯 **Unified Message Format**: Provider-agnostic message architecture
+- ⚡ **Multiple Instances**: Run 1-N provider connections concurrently (even multiple instances of the same provider)
+- 🎨 **Type-Safe**: Leverage Rust's type system to catch errors at compile time
+- 🚀 **Async-First**: Built on Tokio for high-performance async I/O
+- 💾 **Prompt Caching**: Native support for Anthropic's 5-minute and 1-hour caching
+- 🔧 **Tool Calling**: First-class function/tool calling support
+- 📊 **Optional Events**: Feature-gated business event logging for observability
+- 🎚️ **KISS Principle**: Simple, maintainable solutions over complex abstractions
 
-**What Needs Fixing**:
-- ⚠️ ~43 compilation errors (mostly import path issues)
-- ⚠️ Some unused imports to clean up
-- ⏳ Tests not yet run
+## Quick Start
 
-## Phase 2 Next Steps
+```rust
+use multi_llm::{Message, Request, OpenAIProvider, OpenAIConfig};
 
-**Immediate** (< 1 hour):
-1. Fix remaining import errors (see [PHASE2_PLAN.md](PHASE2_PLAN.md) Step 1)
-2. Clean up unused imports
-3. Verify compilation: `cargo check`
-4. Run tests: `cargo test --lib`
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let config = OpenAIConfig {
+        api_key: std::env::var("OPENAI_API_KEY")?,
+        model: "gpt-4".to_string(),
+        ..Default::default()
+    };
 
-**Main Tasks** (1-2 weeks):
-1. Refactor `core_types/` into proper public API modules
-2. Review and improve error handling
-3. Review business events system (make optional?)
-4. Create comprehensive documentation and examples
-5. Prepare for crates.io publication
+    let provider = OpenAIProvider::new(config)?;
 
-See **[PHASE2_PLAN.md](PHASE2_PLAN.md)** for complete details.
+    let request = Request {
+        messages: vec![
+            Message::user("What is the capital of France?"),
+        ],
+        config: None,
+    };
 
-## Key Features
+    let response = provider.execute(request, None).await?;
+    println!("Response: {}", response.content);
 
-- **Multiple Providers**: Seamless switching between OpenAI, Anthropic, Ollama, and LMStudio
-- **Unified Messages**: Provider-agnostic message architecture with caching hints (core feature!)
-- **Prompt Caching**: Native support for Anthropic prompt caching
-- **Tool Calling**: First-class function/tool calling support
-- **Resilience**: Built-in retry logic, rate limiting, and error handling
-
-## Compatibility
-
-- **Rust Edition**: 2021
-- **MSRV**: Rust 1.75 or later
-- **Edition Compatibility**: Works with projects using any Rust edition (2015, 2018, 2021, 2024)
-
-## Project Structure
-
+    Ok(())
+}
 ```
-multi-llm/
-├── src/
-│   ├── core_types/        # Extracted types as core types (Phase 2: refactor)
-│   │   ├── errors.rs      # Error traits and types
-│   │   ├── messages.rs    # ⭐ Unified message architecture (PRIMARY FEATURE)
-│   │   ├── executor.rs    # Executor types and LLM provider trait
-│   │   └── events.rs      # Business event logging
-│   ├── logging.rs         # Log macro re-exports (log_debug, log_error, etc.)
-│   ├── client.rs          # UnifiedLLMClient
-│   ├── config.rs          # Configuration types
-│   ├── providers/         # Provider implementations
-│   │   ├── anthropic/     # Anthropic Claude
-│   │   ├── openai.rs      # OpenAI GPT
-│   │   ├── ollama.rs      # Ollama (local models)
-│   │   └── lmstudio.rs    # LM Studio
-│   └── ...
-├── tests/                 # Integration tests
-├── EXTRACTION.md          # ✅ Phase 1 completion summary
-├── PHASE2_PLAN.md         # 📋 Detailed Phase 2 tasks
-└── PHASE3_PLAN.md         # 📋 Future integration plans
+
+## Multi-Provider Example
+
+Switch between providers without code changes:
+
+```rust
+use multi_llm::{LlmProvider, AnthropicProvider, OpenAIProvider};
+
+async fn ask_llm(provider: &dyn LlmProvider, question: &str) -> Result<String> {
+    let request = Request {
+        messages: vec![Message::user(question)],
+        config: None,
+    };
+    let response = provider.execute(request, None).await?;
+    Ok(response.content)
+}
+
+// Works with any provider
+let openai = OpenAIProvider::new(openai_config)?;
+let anthropic = AnthropicProvider::new(anthropic_config)?;
+
+let answer1 = ask_llm(&openai, "What is 2+2?").await?;
+let answer2 = ask_llm(&anthropic, "What is 2+2?").await?;
+```
+
+## Multi-Instance Pattern
+
+Run multiple instances of the same provider with different configurations:
+
+```rust
+// Fast model for simple tasks
+let anthropic_fast = AnthropicProvider::new(AnthropicConfig {
+    model: "claude-3-haiku-20240307".to_string(),
+    ..Default::default()
+})?;
+
+// Powerful model for complex tasks with 1-hour caching
+let anthropic_smart = AnthropicProvider::new(AnthropicConfig {
+    model: "claude-3-opus-20240229".to_string(),
+    cache_ttl: Some("1h".to_string()),
+    ..Default::default()
+})?;
+```
+
+## Prompt Caching
+
+Reduce costs with Anthropic's prompt caching (both 5-minute and 1-hour):
+
+```rust
+let msg = Message::user("Large context to cache")
+    .with_cache_control(CacheControl::extended())  // 1-hour cache
+    .build();
+```
+
+## Tool Calling
+
+```rust
+let tools = vec![
+    Tool {
+        name: "get_weather".to_string(),
+        description: "Get current weather".to_string(),
+        parameters: json!({
+            "type": "object",
+            "properties": {
+                "location": {"type": "string"}
+            }
+        }),
+    },
+];
+
+let config = RequestConfig {
+    tools,
+    tool_choice: Some(ToolChoice::Auto),
+    ..Default::default()
+};
+
+let response = provider.execute(request, Some(config)).await?;
+```
+
+## Optional Events
+
+Enable business event logging for observability:
+
+```toml
+[dependencies]
+multi-llm = { version = "0.1", features = ["events"] }
+```
+
+```rust
+#[cfg(feature = "events")]
+{
+    for event in response.events {
+        match event.event_type {
+            EventType::CacheHit { tokens_saved } => {
+                println!("Cache saved {} tokens", tokens_saved);
+            }
+            EventType::TokenUsage { prompt, completion } => {
+                println!("Used {} + {} tokens", prompt, completion);
+            }
+            _ => {}
+        }
+    }
+}
 ```
 
 ## Documentation
 
-- **[EXTRACTION.md](EXTRACTION.md)** - What was done in Phase 1, current state, notes for Phase 2
-- **[PHASE2_PLAN.md](PHASE2_PLAN.md)** - Detailed plan for cleanup and generalization
-- **[PHASE3_PLAN.md](PHASE3_PLAN.md)** - Optional integration guide for parent projects
+- **[Design Document](docs/DESIGN.md)** - Comprehensive architecture and design decisions
+- **[Architecture Decision Records](docs/adr/)** - Detailed rationale for major decisions
+- **[Phase 2 Plan](docs/PHASE2_PLAN.md)** - Current refactoring tasks
+- **[Phase 3 Plan](docs/PHASE3_PLAN.md)** - Future integration plans
 
-## Getting Started (Phase 2)
+## Supported Providers
+
+| Provider | Status | Caching | Tools | Streaming* |
+|----------|--------|---------|-------|------------|
+| **Anthropic** | ✅ | ✅ (5m + 1h) | ✅ | Post-1.0 |
+| **OpenAI** | ✅ | ❌ | ✅ | Post-1.0 |
+| **Ollama** | ✅ | ❌ | ⚠️ | Post-1.0 |
+| **LM Studio** | ✅ | ❌ | ⚠️ | Post-1.0 |
+
+*Streaming support deferred to post-1.0 release
+
+## Design Philosophy
+
+1. **KISS**: Simplicity over complexity - simple solutions are maintainable
+2. **Multi-Provider by Design**: 1-N concurrent connections via config, not code
+3. **Library-First**: Pure library with no application assumptions
+4. **Type Safety**: Leverage Rust's type system to prevent errors
+5. **Minimal Dependencies**: Every dependency impacts downstream users
+
+See [Design Document](docs/DESIGN.md) for detailed philosophy and architecture.
+
+## Project Status
+
+**Current Phase**: Pre-1.0 Cleanup & Stabilization
+
+**What Works**:
+- ✅ All provider implementations (OpenAI, Anthropic, Ollama, LM Studio)
+- ✅ Unified message architecture with caching hints
+- ✅ Tool calling support
+- ✅ Async I/O with Tokio
+- ✅ Comprehensive error handling
+
+**Pre-1.0 Tasks** (see [Phase 2 Plan](docs/PHASE2_PLAN.md)):
+- 🔄 Remove legacy naming (`Executor*` → simpler names)
+- 🔄 Feature-gate events system
+- 🔄 Narrow public API surface
+- 🔄 Remove parent project references
+- 🔄 Comprehensive documentation and examples
+
+## Requirements
+
+- **Rust**: 1.75 or later
+- **Edition**: 2021
+- **Tokio**: Async runtime required
+
+## Installation
+
+```toml
+[dependencies]
+multi-llm = "0.1"
+
+# With events feature
+multi-llm = { version = "0.1", features = ["events"] }
+```
+
+## Testing
 
 ```bash
-# Navigate to the project
-cd /Users/rick/git/multi-llm
-
-# Read the context
-cat EXTRACTION.md
-cat PHASE2_PLAN.md
-
-# Fix compilation errors (see PHASE2_PLAN.md Step 1)
-# Then verify:
-cargo check
+# Unit tests (fast)
 cargo test --lib
-```
 
-## Architecture Highlights
+# Integration tests (some require external services)
+cargo test --tests
 
-### Unified Message Architecture
-
-The core innovation of multi-llm is the **unified message** system that treats all providers consistently:
-
-```rust
-use multi_llm::{UnifiedMessage, MessageRole, MessageContent, MessageAttributes};
-
-// Simple message
-let msg = UnifiedMessage::user("Hello!");
-
-// With caching hints (for Anthropic)
-let system_msg = UnifiedMessage::system_instruction(
-    "You are a helpful assistant",
-    Some("system-v1".to_string())  // Cache key
-);
-
-// With priority ordering
-let context_msg = UnifiedMessage::context(
-    "User context...",
-    Some("user-context".to_string())
-);
-```
-
-### Provider Abstraction
-
-```rust
-use multi_llm::{UnifiedLLMClient, LLMConfig, OpenAIConfig};
-
-let config = LLMConfig::openai(OpenAIConfig {
-    api_key: "your-key".to_string(),
-    model: "gpt-4".to_string(),
-    ..Default::default()
-});
-
-let client = UnifiedLLMClient::new(config)?;
-```
-
-## Testing Strategy
-
-**Unit Tests**: `cargo test --lib` (~2305 tests from the original codebase)
-**Integration Tests**: `cargo test --tests` (~107 tests, some require Docker)
-
-Some integration tests are marked with `#[ignore]` and require external services:
-```bash
-# Run ignored tests
+# Include ignored tests (require API keys)
 cargo test -- --ignored
 ```
 
-## Origin
+## Contributing
 
-This library provides standalone, reusable multi-provider LLM client. The extraction was research-driven using Serena tools to identify minimal dependencies while maintaining semantic compatibility.
+Contributions welcome! Before contributing:
 
-**Extraction Date**: 2025-01-21
+1. Read the [Design Document](docs/DESIGN.md)
+2. Review [Architecture Decision Records](docs/adr/)
+3. Follow established patterns
+4. Add tests for new functionality
+5. Use `log_*!` macros for logging (not `println!`)
 
-**Phase 1**: ✅ Complete
-**Phase 2**: 🚧 In Progress
+See [Appendix D: Contributing](docs/DESIGN.md#appendix-d-contributing) for detailed guidelines.
+
+## Compatibility
+
+Works with projects using any Rust edition (2015, 2018, 2021, 2024).
 
 ## License
 
-MIT OR Apache-2.0 (to be added in Phase 2)
+MIT OR Apache-2.0
 
-## Contributing
+## Acknowledgments
 
-Phase 2 is currently in progress. After completion, contribution guidelines will be added.
+Extracted from production use in myStory, refined as a standalone library.
 
 ---
 
-**For Phase 2 Contributors**: Start by reading [PHASE2_PLAN.md](PHASE2_PLAN.md) for detailed tasks and priorities.
+**Status**: Pre-1.0 (Breaking changes expected before 1.0 release)
