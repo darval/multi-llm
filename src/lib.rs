@@ -43,7 +43,6 @@ pub mod core_types;
 // Logging utilities (re-exports tracing with log_* naming)
 pub mod logging;
 
-pub mod agents;
 pub mod client;
 pub mod config;
 pub mod error;
@@ -56,7 +55,6 @@ pub mod tokens;
 pub mod tests;
 
 // Re-export main types
-pub use agents::AgentContext;
 pub use client::UnifiedLLMClient;
 pub use config::{
     AnthropicConfig, DefaultLLMParams, DualLLMConfig, LLMConfig, LLMPath, LMStudioConfig,
@@ -66,7 +64,7 @@ pub use error::{LlmError, LlmResult};
 pub use providers::{AnthropicProvider, LMStudioProvider, OllamaProvider, OpenAIProvider};
 pub use tokens::{AnthropicTokenCounter, OpenAITokenCounter, TokenCounter, TokenCounterFactory};
 
-// Re-export core types (unified messages and executor types)
+// Re-export core types (unified messages and provider types)
 pub use core_types::{
     event_types,
     // Events
@@ -75,24 +73,23 @@ pub use core_types::{
     ErrorCategory,
     ErrorSeverity,
     EventScope,
-    // Executor types
-    ExecutorLLMConfig,
-    ExecutorLLMProvider,
-    ExecutorLLMResponse,
-    ExecutorResponseFormat,
-    ExecutorTokenUsage,
-    ExecutorTool,
-    ExecutorToolCall,
-    ExecutorToolResult,
     LLMBusinessEvent,
+    // Provider types (renamed from Executor*)
+    LlmProvider,
     // Messages - the core unified message architecture
     MessageAttributes,
     MessageCategory,
     MessageContent,
     MessageRole,
-    MyStoryError,
+    RequestConfig,
+    Response,
+    ResponseFormat,
+    TokenUsage,
+    Tool,
+    ToolCall,
     ToolCallingRound,
     ToolChoice,
+    ToolResult,
     UnifiedLLMRequest,
     UnifiedMessage,
     UserErrorCategory,
@@ -101,8 +98,7 @@ pub use core_types::{
 // Re-export LLM-specific types
 pub use types::{LLMMetadata, LLMRequest, LLMToolCall, LLMUsage};
 
-// Convenience type alias
-pub use ExecutorTool as Tool;
+// Convenience type alias (Tool is now the main type, no alias needed)
 
 // Re-export logging macros for convenience
 pub use logging::{log_debug, log_error, log_info, log_trace, log_warn};
@@ -113,10 +109,10 @@ pub mod types {
 
     // Message types from core_types module
 
-    // REMOVED: Tool type - now using crate::core_types::executor::ExecutorTool
+    // REMOVED: Tool type - now using crate::core_types::provider::Tool
     // This consolidates tool types following Rusty's three-layer architecture
     //
-    // REMOVED: LLMResponseFormat - use crate::core_types::executor::ExecutorResponseFormat instead
+    // REMOVED: LLMResponseFormat - use crate::core_types::provider::ResponseFormat instead
     // This type is no longer used following Rusty's consolidation plan.
 
     /// Tool call from LLM response

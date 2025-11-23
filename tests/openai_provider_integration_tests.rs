@@ -21,11 +21,11 @@
 
 use chrono::Utc;
 use multi_llm::config::{DefaultLLMParams, OpenAIConfig};
-use multi_llm::core_types::executor::ExecutorLLMProvider;
 use multi_llm::core_types::messages::{
     MessageAttributes, MessageCategory, MessageContent, MessageRole, UnifiedLLMRequest,
     UnifiedMessage,
 };
+use multi_llm::core_types::provider::LlmProvider;
 use multi_llm::providers::openai::OpenAIProvider;
 use multi_llm::retry::RetryPolicy;
 use std::collections::HashMap;

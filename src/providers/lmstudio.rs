@@ -10,11 +10,10 @@ use super::openai_shared::{
 use crate::config::{DefaultLLMParams, LMStudioConfig};
 use crate::core_types::event_types;
 use crate::core_types::events::{BusinessEvent, EventScope};
-use crate::core_types::executor::{
-    ExecutorLLMConfig, ExecutorLLMProvider, ExecutorLLMResponse, ExecutorTokenUsage,
-    LLMBusinessEvent, ToolCallingRound,
-};
 use crate::core_types::messages::{MessageContent, MessageRole, UnifiedLLMRequest, UnifiedMessage};
+use crate::core_types::provider::{
+    LLMBusinessEvent, LlmProvider, RequestConfig, Response, TokenUsage, ToolCallingRound,
+};
 use crate::error::{LlmError, LlmResult};
 use crate::log_debug;
 use crate::response_parser::ResponseParser;
@@ -136,7 +135,7 @@ impl LMStudioProvider {
         &self,
         response: &OpenAIResponse,
         duration_ms: u64,
-        config: Option<&ExecutorLLMConfig>,
+        config: Option<&RequestConfig>,
     ) -> Option<LLMBusinessEvent> {
         let user_id = config.and_then(|c| c.user_id.as_ref())?;
 
@@ -169,13 +168,13 @@ impl LMStudioProvider {
 }
 
 #[async_trait::async_trait]
-impl ExecutorLLMProvider for LMStudioProvider {
+impl LlmProvider for LMStudioProvider {
     async fn execute_llm(
         &self,
         request: UnifiedLLMRequest,
         _current_tool_round: Option<ToolCallingRound>,
-        config: Option<ExecutorLLMConfig>,
-    ) -> crate::core_types::Result<(ExecutorLLMResponse, Vec<LLMBusinessEvent>)> {
+        config: Option<RequestConfig>,
+    ) -> crate::core_types::Result<(Response, Vec<LLMBusinessEvent>)> {
         let mut events = Vec::new();
 
         // Create base request
@@ -242,8 +241,8 @@ impl ExecutorLLMProvider for LMStudioProvider {
         mut request: UnifiedLLMRequest,
         current_tool_round: Option<ToolCallingRound>,
         schema: serde_json::Value,
-        config: Option<ExecutorLLMConfig>,
-    ) -> crate::core_types::Result<(ExecutorLLMResponse, Vec<LLMBusinessEvent>)> {
+        config: Option<RequestConfig>,
+    ) -> crate::core_types::Result<(Response, Vec<LLMBusinessEvent>)> {
         // Set the schema in the request
         request.response_schema = Some(schema);
 
@@ -305,9 +304,9 @@ impl LMStudioProvider {
         super::openai_shared::OpenAIMessage { role, content }
     }
 
-    /// Parse LMStudio response to ExecutorLLMResponse
+    /// Parse LMStudio response to Response
     /// LMStudio uses OpenAI-compatible response format
-    fn parse_lmstudio_response(&self, response: OpenAIResponse) -> LlmResult<ExecutorLLMResponse> {
+    fn parse_lmstudio_response(&self, response: OpenAIResponse) -> LlmResult<Response> {
         let choice =
             response.choices.into_iter().next().ok_or_else(|| {
                 LlmError::response_parsing_error("No choices in LMStudio response")
@@ -321,7 +320,7 @@ impl LMStudioProvider {
             .tool_calls
             .unwrap_or_default()
             .into_iter()
-            .map(|tc| crate::core_types::executor::ExecutorToolCall {
+            .map(|tc| crate::core_types::provider::ToolCall {
                 id: tc.id,
                 name: tc.function.name,
                 arguments: serde_json::from_str(&tc.function.arguments)
@@ -330,7 +329,7 @@ impl LMStudioProvider {
             .collect();
 
         // LMStudio may not provide usage stats
-        let usage = response.usage.map(|u| ExecutorTokenUsage {
+        let usage = response.usage.map(|u| TokenUsage {
             prompt_tokens: u.prompt_tokens,
             completion_tokens: u.completion_tokens,
             total_tokens: u.total_tokens,
@@ -356,7 +355,7 @@ impl LMStudioProvider {
             None
         };
 
-        Ok(ExecutorLLMResponse {
+        Ok(Response {
             content,
             structured_response,
             tool_calls,

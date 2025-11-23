@@ -10,7 +10,7 @@
 
 use super::helpers::*;
 use crate::providers::openai_shared::utils;
-use crate::core_types::executor::LLMRequestConfig;
+use crate::core_types::provider::LLMRequestConfig;
 
 #[cfg(test)]
 mod tests {

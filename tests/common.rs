@@ -12,10 +12,10 @@ use chrono::Utc;
 use multi_llm::config::{
     AnthropicConfig, DefaultLLMParams, LLMConfig, LMStudioConfig, OllamaConfig, OpenAIConfig,
 };
-use multi_llm::core_types::executor::{ExecutorLLMConfig, ExecutorTool};
 use multi_llm::core_types::messages::{
     MessageContent, MessageRole, UnifiedLLMRequest, UnifiedMessage,
 };
+use multi_llm::core_types::provider::{RequestConfig, Tool};
 use multi_llm::providers::{AnthropicProvider, LMStudioProvider, OllamaProvider, OpenAIProvider};
 use multi_llm::retry::RetryPolicy;
 use multi_llm::tokens::{AnthropicTokenCounter, OpenAITokenCounter, TokenCounter};
@@ -310,12 +310,12 @@ pub fn create_test_unified_request_with_system() -> UnifiedLLMRequest {
     UnifiedLLMRequest::new(messages)
 }
 
-/// Create test ExecutorLLMConfig with all fields populated
+/// Create test RequestConfig with all fields populated
 ///
 /// Returns a complete configuration with all optional fields set.
 /// Use this to test configuration completeness across providers.
-pub fn create_full_executor_config() -> ExecutorLLMConfig {
-    ExecutorLLMConfig {
+pub fn create_full_executor_config() -> RequestConfig {
+    RequestConfig {
         llm_path: Some("test_llm".to_string()),
         session_id: Some("test_session".to_string()),
         user_id: Some("test_user".to_string()),
@@ -331,11 +331,11 @@ pub fn create_full_executor_config() -> ExecutorLLMConfig {
     }
 }
 
-/// Create minimal test ExecutorLLMConfig with only required fields
+/// Create minimal test RequestConfig with only required fields
 ///
 /// Returns a configuration with minimal fields set.
-pub fn create_minimal_executor_config() -> ExecutorLLMConfig {
-    ExecutorLLMConfig {
+pub fn create_minimal_executor_config() -> RequestConfig {
+    RequestConfig {
         llm_path: Some("test_llm".to_string()),
         session_id: Some("test_session".to_string()),
         user_id: Some("test_user".to_string()),
@@ -354,8 +354,8 @@ pub fn create_minimal_executor_config() -> ExecutorLLMConfig {
 /// Create test ExecutorTool
 ///
 /// Returns a simple tool definition suitable for testing tool call functionality.
-pub fn create_test_tool() -> ExecutorTool {
-    ExecutorTool {
+pub fn create_test_tool() -> Tool {
+    Tool {
         name: "test_tool".to_string(),
         description: "A test tool for unit tests".to_string(),
         parameters: serde_json::json!({

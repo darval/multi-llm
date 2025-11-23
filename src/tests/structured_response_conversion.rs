@@ -1,6 +1,6 @@
-//! Unit Tests for ExecutorLLMResponse Structured Response Conversion
+//! Unit Tests for Response Structured Response Conversion
 //!
-//! UNIT UNDER TEST: ExecutorLLMResponse conversion and validation
+//! UNIT UNDER TEST: Response conversion and validation
 //!
 //! BUSINESS RESPONSIBILITY:
 //!   - Convert raw LLM JSON responses to typed StructuredResponse objects
@@ -17,7 +17,7 @@
 //!   - Metadata preservation during structured response conversion
 //!   - JSON schema validation failure scenarios and error reporting
 
-use crate::core_types::executor::{ExecutorLLMResponse, ExecutorTokenUsage};
+use crate::core_types::provider::{Response, TokenUsage};
 // Note: Structured response types no longer needed since we work with JSON directly
 use serde_json::json;
 
@@ -53,13 +53,13 @@ fn create_valid_structured_json() -> serde_json::Value {
     })
 }
 
-/// Helper function to create ExecutorLLMResponse with structured data for testing
-fn create_llm_response_with_structured_data() -> ExecutorLLMResponse {
-    ExecutorLLMResponse {
+/// Helper function to create Response with structured data for testing
+fn create_llm_response_with_structured_data() -> Response {
+    Response {
         content: "That sounds like a wonderful memory! Tell me more.".to_string(),
         structured_response: Some(create_valid_structured_json()),
         tool_calls: vec![],
-        usage: Some(ExecutorTokenUsage {
+        usage: Some(TokenUsage {
             prompt_tokens: 100,
             completion_tokens: 50,
             total_tokens: 150,
@@ -71,10 +71,10 @@ fn create_llm_response_with_structured_data() -> ExecutorLLMResponse {
 
 #[test]
 fn test_executor_response_contains_valid_structured_json() {
-    // Test verifies ExecutorLLMResponse properly contains structured JSON data
+    // Test verifies Response properly contains structured JSON data
     // with expected fields and values for conversation processing
 
-    // Arrange - Create ExecutorLLMResponse with valid structured JSON using helper
+    // Arrange - Create Response with valid structured JSON using helper
     let llm_response = create_llm_response_with_structured_data();
 
     // Act - Access structured response directly
@@ -121,13 +121,13 @@ fn test_executor_response_contains_valid_structured_json() {
 }
 
 // Temporarily commented out - these tests relied on conversion methods that are no longer needed
-// since ExecutorLLMResponse directly contains structured_response field
+// since Response directly contains structured_response field
 /*
 #[test]
 fn test_llm_response_into_structured_handles_invalid_json() {
     // RED: This should fail because into_structured() method doesn't exist yet
 
-    // Arrange - Create ExecutorLLMResponse with invalid structured JSON
+    // Arrange - Create Response with invalid structured JSON
     let invalid_json = json!({
         "conversation_response": {
             "message": "Valid message",
@@ -136,7 +136,7 @@ fn test_llm_response_into_structured_handles_invalid_json() {
         // Missing required sections like user_analysis
     });
 
-    let llm_response = ExecutorLLMResponse {
+    let llm_response = Response {
         content: "Valid message".to_string(),
         structured_response: Some(invalid_json),
         tool_calls: vec![],
@@ -163,8 +163,8 @@ fn test_llm_response_into_structured_handles_invalid_json() {
 fn test_llm_response_into_structured_no_structured_data() {
     // RED: This should fail because into_structured() method doesn't exist yet
 
-    // Arrange - Create ExecutorLLMResponse without structured_response
-    let llm_response = ExecutorLLMResponse {
+    // Arrange - Create Response without structured_response
+    let llm_response = Response {
         content: "Plain text response".to_string(),
         structured_response: None,
         tool_calls: vec![],
@@ -224,7 +224,7 @@ fn test_try_into_structured_response_trait() {
         }
     });
 
-    let llm_response = ExecutorLLMResponse {
+    let llm_response = Response {
         content: "Test message".to_string(),
         structured_response: Some(structured_json),
         tool_calls: vec![],
@@ -280,11 +280,11 @@ fn test_structured_response_preserves_llm_metadata() {
         }
     });
 
-    let llm_response = ExecutorLLMResponse {
+    let llm_response = Response {
         content: "Metadata test".to_string(),
         structured_response: Some(structured_json),
         tool_calls: vec![],
-        usage: Some(ExecutorTokenUsage {
+        usage: Some(TokenUsage {
             prompt_tokens: 150,
             completion_tokens: 85,
             total_tokens: 235,

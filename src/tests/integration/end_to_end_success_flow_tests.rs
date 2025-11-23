@@ -9,7 +9,7 @@
 //   - Verifies successful completion scenarios across all supported providers
 
 use super::helpers::*;
-use crate::core_types::executor::ExecutorLLMProvider;
+use crate::core_types::provider::LlmProvider;
 use serde_json::json;
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};

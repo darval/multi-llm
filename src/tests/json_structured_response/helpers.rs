@@ -4,13 +4,13 @@
 //! These helpers support story analysis schema creation and test response generation.
 
 use crate::providers::openai_shared::OpenAIRequest;
-use crate::core_types::executor::ExecutorResponseFormat;
-use crate::core_types::executor::{ExecutorLLMResponse, ExecutorTokenUsage};
+use crate::core_types::provider::ResponseFormat;
+use crate::core_types::provider::{Response, TokenUsage};
 use serde_json::json;
 
 /// Create a test schema for story emotional analysis
-pub fn create_test_story_emotional_analysis_schema() -> ExecutorResponseFormat {
-    ExecutorResponseFormat {
+pub fn create_test_story_emotional_analysis_schema() -> ResponseFormat {
+    ResponseFormat {
         name: "story_emotional_analysis".to_string(),
         schema: json!({
             "type": "object",
@@ -38,7 +38,7 @@ pub fn create_test_story_emotional_analysis_schema() -> ExecutorResponseFormat {
 }
 
 /// Create a test LLM response with structured story analysis data
-pub fn create_test_story_analysis_response() -> ExecutorLLMResponse {
+pub fn create_test_story_analysis_response() -> Response {
     let story_analysis_data = json!({
         "emotional_intensity": 0.85,
         "primary_emotion": "nostalgia",
@@ -49,11 +49,11 @@ pub fn create_test_story_analysis_response() -> ExecutorLLMResponse {
         }
     });
 
-    ExecutorLLMResponse {
+    Response {
         content: "The story shows strong nostalgic themes...".to_string(),
         structured_response: Some(story_analysis_data),
         tool_calls: vec![],
-        usage: Some(ExecutorTokenUsage {
+        usage: Some(TokenUsage {
             prompt_tokens: 50,
             completion_tokens: 30,
             total_tokens: 80,
@@ -64,8 +64,8 @@ pub fn create_test_story_analysis_response() -> ExecutorLLMResponse {
 }
 
 /// Create a complex nested schema for comprehensive story analysis
-pub fn create_test_complex_story_schema() -> ExecutorResponseFormat {
-    ExecutorResponseFormat {
+pub fn create_test_complex_story_schema() -> ResponseFormat {
+    ResponseFormat {
         name: "complex_story_analysis".to_string(),
         schema: json!({
             "type": "object",

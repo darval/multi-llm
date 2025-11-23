@@ -5,11 +5,10 @@ use super::conversion;
 use super::types::{AnthropicContentBlock, AnthropicRequest, AnthropicResponse, SystemField};
 use crate::config::{AnthropicConfig, DefaultLLMParams};
 use crate::core_types::events::{BusinessEvent, EventScope};
-use crate::core_types::executor::{
-    ExecutorLLMConfig, ExecutorLLMProvider, ExecutorLLMResponse, ExecutorResponseFormat,
-    LLMBusinessEvent, ToolCallingRound,
-};
 use crate::core_types::messages::UnifiedLLMRequest;
+use crate::core_types::provider::{
+    LLMBusinessEvent, LlmProvider, RequestConfig, Response, ResponseFormat, ToolCallingRound,
+};
 use crate::error::{LlmError, LlmResult};
 use crate::retry::RetryExecutor;
 use crate::{log_debug, log_error, log_warn};
@@ -285,19 +284,19 @@ impl AnthropicProvider {
         // The client manages retry state internally
     }
 
-    /// Convert AnthropicResponse to ExecutorLLMResponse
+    /// Convert AnthropicResponse to Response
     fn convert_anthropic_to_executor_response(
         &self,
         api_response: AnthropicResponse,
-        response_format: Option<ExecutorResponseFormat>,
-        config: Option<ExecutorLLMConfig>,
-    ) -> crate::core_types::Result<ExecutorLLMResponse> {
+        response_format: Option<ResponseFormat>,
+        config: Option<RequestConfig>,
+    ) -> crate::core_types::Result<Response> {
         let (content, tool_calls) = self.extract_content_and_tools(&api_response);
         let usage = self.create_usage_stats(&api_response, config.as_ref());
         let (final_content, structured_response) =
             self.parse_structured_response(content, &tool_calls, response_format);
 
-        Ok(crate::core_types::executor::ExecutorLLMResponse {
+        Ok(crate::core_types::provider::Response {
             content: final_content,
             structured_response,
             tool_calls,
@@ -310,7 +309,7 @@ impl AnthropicProvider {
     fn extract_content_and_tools(
         &self,
         api_response: &AnthropicResponse,
-    ) -> (String, Vec<crate::core_types::executor::ExecutorToolCall>) {
+    ) -> (String, Vec<crate::core_types::provider::ToolCall>) {
         let mut content = String::new();
         let mut tool_calls = Vec::new();
 
@@ -323,7 +322,7 @@ impl AnthropicProvider {
                     content.push_str(text);
                 }
                 AnthropicContentBlock::ToolUse { id, name, input } => {
-                    tool_calls.push(crate::core_types::executor::ExecutorToolCall {
+                    tool_calls.push(crate::core_types::provider::ToolCall {
                         id: id.clone(),
                         name: name.clone(),
                         arguments: input.clone(),
@@ -339,8 +338,8 @@ impl AnthropicProvider {
     fn create_usage_stats(
         &self,
         api_response: &AnthropicResponse,
-        config: Option<&ExecutorLLMConfig>,
-    ) -> crate::core_types::executor::ExecutorTokenUsage {
+        config: Option<&RequestConfig>,
+    ) -> crate::core_types::provider::TokenUsage {
         let cache_creation_tokens = api_response.usage.cache_creation_input_tokens.unwrap_or(0);
         let cache_read_tokens = api_response.usage.cache_read_input_tokens.unwrap_or(0);
         let total_tokens_with_cache = api_response.usage.input_tokens
@@ -352,18 +351,14 @@ impl AnthropicProvider {
             self.log_cache_usage(api_response, config);
         }
 
-        crate::core_types::executor::ExecutorTokenUsage {
+        crate::core_types::provider::TokenUsage {
             prompt_tokens: api_response.usage.input_tokens,
             completion_tokens: api_response.usage.output_tokens,
             total_tokens: total_tokens_with_cache,
         }
     }
 
-    fn log_cache_usage(
-        &self,
-        api_response: &AnthropicResponse,
-        config: Option<&ExecutorLLMConfig>,
-    ) {
+    fn log_cache_usage(&self, api_response: &AnthropicResponse, config: Option<&RequestConfig>) {
         let provider_with_path = config
             .and_then(|cfg| cfg.llm_path.as_ref().map(|p| format!("{}:anthropic", p)))
             .unwrap_or_else(|| "anthropic".to_string());
@@ -399,8 +394,8 @@ impl AnthropicProvider {
     fn parse_structured_response(
         &self,
         content: String,
-        tool_calls: &[crate::core_types::executor::ExecutorToolCall],
-        response_format: Option<ExecutorResponseFormat>,
+        tool_calls: &[crate::core_types::provider::ToolCall],
+        response_format: Option<ResponseFormat>,
     ) -> (String, Option<serde_json::Value>) {
         if response_format.is_none() {
             return (content, None);
@@ -453,9 +448,9 @@ impl AnthropicProvider {
     fn apply_executor_config(
         &self,
         request: &mut AnthropicRequest,
-        config: ExecutorLLMConfig,
+        config: RequestConfig,
         enable_caching: bool,
-    ) -> Option<ExecutorResponseFormat> {
+    ) -> Option<ResponseFormat> {
         // Apply LLM parameters
         // Anthropic doesn't allow both temperature and top_p - enforce mutual exclusivity
         if let Some(temp) = config.temperature {
@@ -525,7 +520,7 @@ impl AnthropicProvider {
     }
 
     /// Determine if caching should be enabled for this request
-    fn should_enable_caching(&self, config: Option<&ExecutorLLMConfig>) -> bool {
+    fn should_enable_caching(&self, config: Option<&RequestConfig>) -> bool {
         self.config.enable_prompt_caching
             && config
                 .and_then(|c| c.llm_path.as_ref())
@@ -552,7 +547,7 @@ impl AnthropicProvider {
     fn create_request_event(
         &self,
         anthropic_request: &AnthropicRequest,
-        config: Option<&ExecutorLLMConfig>,
+        config: Option<&RequestConfig>,
     ) -> Option<LLMBusinessEvent> {
         let user_id = config.and_then(|c| c.user_id.clone())?;
 
@@ -576,7 +571,7 @@ impl AnthropicProvider {
     fn create_error_event(
         &self,
         error: &LlmError,
-        config: Option<&ExecutorLLMConfig>,
+        config: Option<&RequestConfig>,
     ) -> Option<LLMBusinessEvent> {
         let user_id = config.and_then(|c| c.user_id.clone())?;
 
@@ -595,7 +590,7 @@ impl AnthropicProvider {
         &self,
         api_response: &AnthropicResponse,
         duration_ms: u64,
-        config: Option<&ExecutorLLMConfig>,
+        config: Option<&RequestConfig>,
     ) -> Option<LLMBusinessEvent> {
         let user_id = config.and_then(|c| c.user_id.clone())?;
 
@@ -630,13 +625,13 @@ impl AnthropicProvider {
 }
 
 #[async_trait::async_trait]
-impl ExecutorLLMProvider for AnthropicProvider {
+impl LlmProvider for AnthropicProvider {
     async fn execute_llm(
         &self,
         request: UnifiedLLMRequest,
         _current_tool_round: Option<ToolCallingRound>,
-        config: Option<ExecutorLLMConfig>,
-    ) -> crate::core_types::Result<(ExecutorLLMResponse, Vec<LLMBusinessEvent>)> {
+        config: Option<RequestConfig>,
+    ) -> crate::core_types::Result<(Response, Vec<LLMBusinessEvent>)> {
         let mut events = Vec::new();
 
         // Determine caching and create base request
@@ -684,7 +679,7 @@ impl ExecutorLLMProvider for AnthropicProvider {
             events.push(event);
         }
 
-        // Convert Anthropic response to ExecutorLLMResponse
+        // Convert Anthropic response to Response
         let response =
             self.convert_anthropic_to_executor_response(api_response, response_format, config)?;
 
@@ -696,8 +691,8 @@ impl ExecutorLLMProvider for AnthropicProvider {
         mut request: UnifiedLLMRequest,
         current_tool_round: Option<ToolCallingRound>,
         schema: serde_json::Value,
-        config: Option<ExecutorLLMConfig>,
-    ) -> crate::core_types::Result<(ExecutorLLMResponse, Vec<LLMBusinessEvent>)> {
+        config: Option<RequestConfig>,
+    ) -> crate::core_types::Result<(Response, Vec<LLMBusinessEvent>)> {
         // Set the schema in the request
         request.response_schema = Some(schema);
 

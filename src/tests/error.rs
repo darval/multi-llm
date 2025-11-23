@@ -17,7 +17,7 @@
 //   - Automatic logging with structured fields for observability
 //   - Error constructor functions with proper context preservation
 
-use crate::core_types::{ErrorCategory, ErrorSeverity, MyStoryError};
+use crate::core_types::{ErrorCategory, ErrorSeverity};
 use crate::error::LlmError;
 
 #[cfg(test)]

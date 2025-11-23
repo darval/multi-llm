@@ -7,7 +7,6 @@
 pub mod helpers;
 
 // Core unit tests (template compliant)
-pub mod agents;
 pub mod config;
 pub mod error;
 

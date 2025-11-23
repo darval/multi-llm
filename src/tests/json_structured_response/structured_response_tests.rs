@@ -1,6 +1,6 @@
-// Unit Tests for ExecutorLLMResponse and ExecutorResponseFormat
+// Unit Tests for Response and ResponseFormat
 //
-// UNIT UNDER TEST: ExecutorLLMResponse (concrete type)
+// UNIT UNDER TEST: Response (concrete type)
 //
 // BUSINESS RESPONSIBILITY:
 //   - Captures structured AI analysis of user narratives for story processing
@@ -14,8 +14,8 @@
 //   - Edge cases: empty responses, missing structured data
 
 use super::helpers::*;
-use crate::core_types::executor::ExecutorResponseFormat;
-use crate::core_types::executor::{ExecutorLLMResponse, ExecutorTokenUsage};
+use crate::core_types::provider::ResponseFormat;
+use crate::core_types::provider::{Response, TokenUsage};
 use serde_json::json;
 
 #[cfg(test)]
@@ -38,12 +38,12 @@ mod tests {
             }
         });
 
-        // Act: Create ExecutorLLMResponse with structured story analysis
-        let response = ExecutorLLMResponse {
+        // Act: Create Response with structured story analysis
+        let response = Response {
             content: "The story shows strong nostalgic themes about family and childhood memories in the old house with grandmother.".to_string(),
             structured_response: Some(story_analysis_data.clone()),
             tool_calls: vec![],
-            usage: Some(ExecutorTokenUsage {
+            usage: Some(TokenUsage {
                 prompt_tokens: 50,
                 completion_tokens: 30,
                 total_tokens: 80,
@@ -98,7 +98,7 @@ mod tests {
         });
 
         // Act: Create format for story emotional analysis
-        let format = ExecutorResponseFormat {
+        let format = ResponseFormat {
             name: "story_emotional_analysis".to_string(),
             schema: emotional_analysis_schema.clone(),
         };

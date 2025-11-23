@@ -7,7 +7,7 @@
 #![allow(clippy::unwrap_used)]
 
 use super::types::*;
-use crate::core_types::executor::{ExecutorLLMConfig, ExecutorTool, ExecutorToolCall, ToolChoice};
+use crate::core_types::provider::{RequestConfig, Tool, ToolCall, ToolChoice};
 use crate::error::{LlmError, LlmResult};
 use crate::log_error;
 use crate::retry::{RetryExecutor, RetryPolicy};
@@ -740,7 +740,7 @@ pub fn convert_neutral_messages_to_openai(messages: &[UnifiedMessage]) -> Vec<Op
 }
 
 /// Convert neutral tools to OpenAI format
-pub fn convert_neutral_tools_to_openai(tools: &[ExecutorTool]) -> Vec<Value> {
+pub fn convert_neutral_tools_to_openai(tools: &[Tool]) -> Vec<Value> {
     tools
         .iter()
         .map(|tool| {
@@ -757,7 +757,7 @@ pub fn convert_neutral_tools_to_openai(tools: &[ExecutorTool]) -> Vec<Value> {
 }
 
 /// Apply LLM config to OpenAI request
-pub fn apply_config_to_request(request: &mut OpenAIRequest, config: Option<ExecutorLLMConfig>) {
+pub fn apply_config_to_request(request: &mut OpenAIRequest, config: Option<RequestConfig>) {
     if let Some(cfg) = config {
         apply_llm_parameters(request, &cfg);
         apply_tools_if_user_llm(request, &cfg);
@@ -766,7 +766,7 @@ pub fn apply_config_to_request(request: &mut OpenAIRequest, config: Option<Execu
     }
 }
 
-fn apply_llm_parameters(request: &mut OpenAIRequest, cfg: &ExecutorLLMConfig) {
+fn apply_llm_parameters(request: &mut OpenAIRequest, cfg: &RequestConfig) {
     if let Some(temp) = cfg.temperature {
         request.temperature = Some(temp);
     }
@@ -781,7 +781,7 @@ fn apply_llm_parameters(request: &mut OpenAIRequest, cfg: &ExecutorLLMConfig) {
     }
 }
 
-fn apply_tools_if_user_llm(request: &mut OpenAIRequest, cfg: &ExecutorLLMConfig) {
+fn apply_tools_if_user_llm(request: &mut OpenAIRequest, cfg: &RequestConfig) {
     if cfg.tools.is_empty() {
         return;
     }
@@ -800,7 +800,7 @@ fn apply_tools_if_user_llm(request: &mut OpenAIRequest, cfg: &ExecutorLLMConfig)
 
 fn apply_tool_choice(
     request: &mut OpenAIRequest,
-    tool_choice: Option<crate::core_types::executor::ToolChoice>,
+    tool_choice: Option<crate::core_types::provider::ToolChoice>,
 ) {
     if let Some(choice) = tool_choice {
         request.tool_choice = Some(match choice {
@@ -814,7 +814,7 @@ fn apply_tool_choice(
 
 fn apply_response_format(
     request: &mut OpenAIRequest,
-    response_format: Option<crate::core_types::executor::ExecutorResponseFormat>,
+    response_format: Option<crate::core_types::provider::ResponseFormat>,
 ) {
     if let Some(format) = response_format {
         request.response_format = Some(OpenAIResponseFormat {
@@ -829,10 +829,10 @@ fn apply_response_format(
 }
 
 /// Convert OpenAI tool calls to LLM tool calls
-pub fn convert_tool_calls(openai_calls: &[OpenAIToolCall]) -> Vec<ExecutorToolCall> {
+pub fn convert_tool_calls(openai_calls: &[OpenAIToolCall]) -> Vec<ToolCall> {
     openai_calls
         .iter()
-        .map(|call| ExecutorToolCall {
+        .map(|call| ToolCall {
             id: call.id.clone(),
             name: call.function.name.clone(),
             arguments: serde_json::from_str(&call.function.arguments)
@@ -868,7 +868,7 @@ pub fn estimate_message_tokens(messages: &[OpenAIMessage]) -> u32 {
 /// Result of processing tool calls and content cleaning
 #[derive(Debug)]
 pub struct ToolCallProcessingResult {
-    pub tool_calls: Vec<ExecutorToolCall>,
+    pub tool_calls: Vec<ToolCall>,
     pub cleaned_content: Option<String>,
 }
 
@@ -876,7 +876,7 @@ pub struct ToolCallProcessingResult {
 /// This function integrates standard tool call parsing with custom format detection
 pub fn handle_tool_calls(
     message: &OpenAIResponseMessage,
-) -> crate::error::LlmResult<Vec<ExecutorToolCall>> {
+) -> crate::error::LlmResult<Vec<ToolCall>> {
     let result = handle_tool_calls_with_content_cleaning(message)?;
     Ok(result.tool_calls)
 }
@@ -895,7 +895,7 @@ fn process_standard_tool_calls(tool_calls: &[OpenAIToolCall]) -> Option<ToolCall
 
 /// Create tool call from custom format match result
 fn create_custom_tool_call(match_result: CustomToolCallMatch) -> ToolCallProcessingResult {
-    let tool_call = ExecutorToolCall {
+    let tool_call = ToolCall {
         id: format!("custom_{}", uuid::Uuid::new_v4()),
         name: match_result.function_name,
         arguments: match_result.arguments,

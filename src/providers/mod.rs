@@ -27,7 +27,7 @@ pub mod openai;
 pub mod openai_shared;
 
 // Tests will be rewritten following the research checklist and unit test template
-// to test the current ExecutorLLMProvider trait API (execute_llm, not execute_chat_with_model)
+// to test the current LlmProvider trait API (execute_llm, not execute_chat_with_model)
 #[cfg(test)]
 mod tests;
 

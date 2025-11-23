@@ -1,25 +1,4 @@
-//! Error categorization and severity traits
-//!
-//! Phase 2 will review whether MyStoryError trait is needed or if standard Error is sufficient.
-
-/// Base trait for categorized errors with severity and user messaging
-pub trait MyStoryError: std::error::Error + Send + Sync + 'static {
-    /// Error category for routing and handling decisions
-    fn category(&self) -> ErrorCategory;
-
-    /// Severity for logging and alerting
-    fn severity(&self) -> ErrorSeverity;
-
-    /// Whether this error should trigger a retry
-    fn is_retryable(&self) -> bool {
-        false
-    }
-
-    /// Convert to a user-friendly message (strips technical details)
-    fn user_message(&self) -> String {
-        "An error occurred while processing your request".to_string()
-    }
-}
+//! Error categorization and severity types
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ErrorCategory {

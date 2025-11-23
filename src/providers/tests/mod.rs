@@ -6,7 +6,7 @@
 //! ## Test Organization
 //!
 //! ### Trait Compliance Tests (`trait_compliance.rs`)
-//! **CRITICAL**: These tests verify that ALL providers implement the ExecutorLLMProvider
+//! **CRITICAL**: These tests verify that ALL providers implement the LlmProvider
 //! trait consistently. This catches issues where one provider behaves differently from others.
 //!
 //! ### Configuration Tests (`configuration.rs`)

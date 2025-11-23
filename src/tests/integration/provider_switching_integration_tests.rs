@@ -9,7 +9,7 @@
 //   - Validates provider identification and capability reporting
 
 use super::helpers::*;
-use crate::core_types::executor::ExecutorLLMProvider;
+use crate::core_types::provider::LlmProvider;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 

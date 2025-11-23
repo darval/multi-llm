@@ -8,11 +8,10 @@ use super::openai_shared::{
 // Removed LLMClientCore import - providers now implement their own methods directly
 use crate::config::{DefaultLLMParams, OpenAIConfig};
 use crate::core_types::events::{BusinessEvent, EventScope};
-use crate::core_types::executor::{
-    ExecutorLLMConfig, ExecutorLLMProvider, ExecutorLLMResponse, ExecutorTokenUsage,
-    LLMBusinessEvent, ToolCallingRound,
-};
 use crate::core_types::messages::{MessageContent, MessageRole, UnifiedLLMRequest, UnifiedMessage};
+use crate::core_types::provider::{
+    LLMBusinessEvent, LlmProvider, RequestConfig, Response, TokenUsage, ToolCallingRound,
+};
 use crate::error::{LlmError, LlmResult};
 use crate::response_parser::ResponseParser;
 use crate::{log_debug, log_error};
@@ -131,7 +130,7 @@ impl OpenAIProvider {
     fn create_request_event(
         &self,
         request: &OpenAIRequest,
-        config: Option<&ExecutorLLMConfig>,
+        config: Option<&RequestConfig>,
     ) -> Option<LLMBusinessEvent> {
         let user_id = config.and_then(|c| c.user_id.clone())?;
 
@@ -149,7 +148,7 @@ impl OpenAIProvider {
     fn create_error_event(
         &self,
         error: &str,
-        config: Option<&ExecutorLLMConfig>,
+        config: Option<&RequestConfig>,
     ) -> Option<LLMBusinessEvent> {
         let user_id = config.and_then(|c| c.user_id.clone())?;
 
@@ -168,7 +167,7 @@ impl OpenAIProvider {
         &self,
         api_response: &OpenAIResponse,
         duration_ms: u64,
-        config: Option<&ExecutorLLMConfig>,
+        config: Option<&RequestConfig>,
     ) -> Option<LLMBusinessEvent> {
         let user_id = config.and_then(|c| c.user_id.clone())?;
 
@@ -242,8 +241,8 @@ impl OpenAIProvider {
         super::openai_shared::OpenAIMessage { role, content }
     }
 
-    /// Parse OpenAI response to ExecutorLLMResponse
-    fn parse_openai_response(&self, response: OpenAIResponse) -> LlmResult<ExecutorLLMResponse> {
+    /// Parse OpenAI response to Response
+    fn parse_openai_response(&self, response: OpenAIResponse) -> LlmResult<Response> {
         let choice = response
             .choices
             .into_iter()
@@ -257,14 +256,14 @@ impl OpenAIProvider {
             .tool_calls
             .unwrap_or_default()
             .into_iter()
-            .map(|tc| crate::core_types::executor::ExecutorToolCall {
+            .map(|tc| crate::core_types::provider::ToolCall {
                 id: tc.id,
                 name: tc.function.name,
                 arguments: serde_json::from_str(&tc.function.arguments).unwrap_or_default(),
             })
             .collect();
 
-        let usage = response.usage.map(|u| ExecutorTokenUsage {
+        let usage = response.usage.map(|u| TokenUsage {
             prompt_tokens: u.prompt_tokens,
             completion_tokens: u.completion_tokens,
             total_tokens: u.total_tokens,
@@ -286,7 +285,7 @@ impl OpenAIProvider {
             None
         };
 
-        Ok(ExecutorLLMResponse {
+        Ok(Response {
             content,
             structured_response,
             tool_calls,
@@ -298,13 +297,13 @@ impl OpenAIProvider {
 }
 
 #[async_trait::async_trait]
-impl ExecutorLLMProvider for OpenAIProvider {
+impl LlmProvider for OpenAIProvider {
     async fn execute_llm(
         &self,
         request: UnifiedLLMRequest,
         _current_tool_round: Option<ToolCallingRound>,
-        config: Option<ExecutorLLMConfig>,
-    ) -> crate::core_types::Result<(ExecutorLLMResponse, Vec<LLMBusinessEvent>)> {
+        config: Option<RequestConfig>,
+    ) -> crate::core_types::Result<(Response, Vec<LLMBusinessEvent>)> {
         let mut events = Vec::new();
 
         // Create base request and apply config
@@ -357,8 +356,8 @@ impl ExecutorLLMProvider for OpenAIProvider {
         mut request: UnifiedLLMRequest,
         current_tool_round: Option<ToolCallingRound>,
         schema: serde_json::Value,
-        config: Option<ExecutorLLMConfig>,
-    ) -> crate::core_types::Result<(ExecutorLLMResponse, Vec<LLMBusinessEvent>)> {
+        config: Option<RequestConfig>,
+    ) -> crate::core_types::Result<(Response, Vec<LLMBusinessEvent>)> {
         // Set the schema in the request
         request.response_schema = Some(schema);
 

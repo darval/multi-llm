@@ -1,5 +1,5 @@
 use crate::{log_error, log_warn};
-use crate::{ErrorCategory, ErrorSeverity, MyStoryError};
+use crate::{ErrorCategory, ErrorSeverity};
 use thiserror::Error;
 
 /// Result type for LLM operations  
@@ -43,8 +43,9 @@ pub enum LlmError {
     SchemaValidationFailed { message: String },
 }
 
-impl MyStoryError for LlmError {
-    fn category(&self) -> ErrorCategory {
+impl LlmError {
+    /// Get the error category for routing and handling decisions
+    pub fn category(&self) -> ErrorCategory {
         match self {
             Self::UnsupportedProvider { .. } => ErrorCategory::Client,
             Self::ConfigurationError { .. } => ErrorCategory::Client,
@@ -59,7 +60,8 @@ impl MyStoryError for LlmError {
         }
     }
 
-    fn severity(&self) -> ErrorSeverity {
+    /// Get the error severity for logging and alerting
+    pub fn severity(&self) -> ErrorSeverity {
         match self {
             Self::UnsupportedProvider { .. } => ErrorSeverity::Error,
             Self::ConfigurationError { .. } => ErrorSeverity::Error,
@@ -74,14 +76,16 @@ impl MyStoryError for LlmError {
         }
     }
 
-    fn is_retryable(&self) -> bool {
+    /// Whether this error should trigger a retry
+    pub fn is_retryable(&self) -> bool {
         matches!(
             self,
             Self::RateLimitExceeded { .. } | Self::Timeout { .. } | Self::RequestFailed { .. }
         )
     }
 
-    fn user_message(&self) -> String {
+    /// Convert to a user-friendly message (strips technical details)
+    pub fn user_message(&self) -> String {
         match self {
             Self::UnsupportedProvider { .. } => {
                 "The requested AI provider is not supported".to_string()
@@ -113,10 +117,8 @@ impl MyStoryError for LlmError {
             Self::SchemaValidationFailed { .. } => "Response format validation failed".to_string(),
         }
     }
-}
 
-// Automatic logging on creation - following error handling guide
-impl LlmError {
+    // Constructor methods with automatic logging
     pub fn unsupported_provider(provider: impl Into<String>) -> Self {
         let provider = provider.into();
         log_error!(

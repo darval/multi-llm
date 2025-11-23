@@ -1,10 +1,9 @@
 use crate::config::{AnthropicConfig, LLMConfig, LMStudioConfig, OllamaConfig, OpenAIConfig};
 use crate::core_types::{
-    executor::{
-        ExecutorLLMConfig, ExecutorLLMProvider, ExecutorLLMResponse, ExecutorResponseFormat,
-        LLMBusinessEvent, ToolCallingRound,
-    },
     messages::UnifiedLLMRequest,
+    provider::{
+        LLMBusinessEvent, LlmProvider, RequestConfig, Response, ResponseFormat, ToolCallingRound,
+    },
 };
 use crate::error::{LlmError, LlmResult};
 use crate::providers::{AnthropicProvider, LMStudioProvider, OllamaProvider, OpenAIProvider};
@@ -20,7 +19,7 @@ enum LLMProvider {
     Ollama(OllamaProvider),
 }
 
-/// Unified LLM client that implements ExecutorLLMProvider
+/// Unified LLM client that implements LlmProvider
 /// This is the primary interface for multi-provider LLM operations
 pub struct UnifiedLLMClient {
     provider: LLMProvider,
@@ -173,19 +172,19 @@ impl UnifiedLLMClient {
     }
 }
 
-/// Implement ExecutorLLMProvider for UnifiedLLMClient
+/// Implement LlmProvider for UnifiedLLMClient
 /// This preserves all the existing functionality while adapting to the new trait interface
 #[async_trait]
-impl ExecutorLLMProvider for UnifiedLLMClient {
+impl LlmProvider for UnifiedLLMClient {
     async fn execute_llm(
         &self,
         request: UnifiedLLMRequest,
         current_tool_round: Option<ToolCallingRound>,
-        config: Option<ExecutorLLMConfig>,
-    ) -> crate::core_types::Result<(ExecutorLLMResponse, Vec<LLMBusinessEvent>)> {
+        config: Option<RequestConfig>,
+    ) -> crate::core_types::Result<(Response, Vec<LLMBusinessEvent>)> {
         let start = Instant::now();
 
-        // Convert ExecutorLLMConfig to internal ExecutorLLMConfig (they're the same now)
+        // Convert RequestConfig to internal RequestConfig (they're the same now)
         let internal_config = config;
 
         // Use default retry policy for executor operations
@@ -237,7 +236,7 @@ impl ExecutorLLMProvider for UnifiedLLMClient {
                     total_tokens = response.usage.as_ref().map_or(0, |u| u.total_tokens),
                     provider = self.provider_name(),
                     model = %self.model,
-                    "ExecutorLLMProvider request completed successfully"
+                    "LlmProvider request completed successfully"
                 );
 
                 // Return response and events (events are already collected by provider)
@@ -249,7 +248,7 @@ impl ExecutorLLMProvider for UnifiedLLMClient {
                     error = %e,
                     provider = self.provider_name(),
                     model = %self.model,
-                    "ExecutorLLMProvider request failed"
+                    "LlmProvider request failed"
                 );
                 Err(anyhow::anyhow!("LLM execution failed: {}", e))
             }
@@ -261,15 +260,15 @@ impl ExecutorLLMProvider for UnifiedLLMClient {
         request: UnifiedLLMRequest,
         current_tool_round: Option<ToolCallingRound>,
         schema: serde_json::Value,
-        config: Option<ExecutorLLMConfig>,
-    ) -> crate::core_types::Result<(ExecutorLLMResponse, Vec<LLMBusinessEvent>)> {
+        config: Option<RequestConfig>,
+    ) -> crate::core_types::Result<(Response, Vec<LLMBusinessEvent>)> {
         let start = Instant::now();
 
-        // Convert ExecutorLLMConfig and add structured response format
+        // Convert RequestConfig and add structured response format
         let mut internal_config = config.unwrap_or_default();
 
         // Add the JSON schema to the response format (overrides any existing format)
-        internal_config.response_format = Some(ExecutorResponseFormat {
+        internal_config.response_format = Some(ResponseFormat {
             name: "structured_response".to_string(),
             schema: schema.clone(),
         });
@@ -343,7 +342,7 @@ impl ExecutorLLMProvider for UnifiedLLMClient {
                     total_tokens = response.usage.as_ref().map_or(0, |u| u.total_tokens),
                     provider = self.provider_name(),
                     model = %self.model,
-                    "ExecutorLLMProvider structured request completed successfully"
+                    "LlmProvider structured request completed successfully"
                 );
 
                 // Return response and events (events are already collected by provider)
@@ -355,7 +354,7 @@ impl ExecutorLLMProvider for UnifiedLLMClient {
                     error = %e,
                     provider = self.provider_name(),
                     model = %self.model,
-                    "ExecutorLLMProvider structured request failed"
+                    "LlmProvider structured request failed"
                 );
                 Err(anyhow::anyhow!("Structured LLM execution failed: {}", e))
             }

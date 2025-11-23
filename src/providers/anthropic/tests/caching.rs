@@ -3,7 +3,7 @@
 //! UNIT UNDER TEST: convert_executor_tools_to_anthropic function
 //!
 //! BUSINESS RESPONSIBILITY:
-//!   - Convert ExecutorTool to Anthropic tool format
+//!   - Convert Tool to Anthropic tool format
 //!   - Apply cache control to last tool only (defines cache breakpoint)
 //!   - Support ephemeral TTL configuration (5m or 1h)
 //!   - Cache all tools as a single prefix following Anthropic's hierarchy
@@ -17,14 +17,14 @@
 //!   - Tool format conversion (name, description, input_schema)
 
 use super::super::caching::convert_executor_tools_to_anthropic;
-use crate::core_types::executor::ExecutorTool;
+use crate::core_types::provider::Tool;
 
 // ============================================================================
 // Helper Functions
 // ============================================================================
 
-fn create_test_tool(name: &str) -> ExecutorTool {
-    ExecutorTool {
+fn create_test_tool(name: &str) -> Tool {
+    Tool {
         name: name.to_string(),
         description: format!("Test tool: {}", name),
         parameters: serde_json::json!({
@@ -45,7 +45,7 @@ fn test_empty_tools_returns_empty_array() {
     // Test verifies empty tool list produces empty result
     // Edge case: no tools provided
 
-    let tools: Vec<ExecutorTool> = vec![];
+    let tools: Vec<Tool> = vec![];
     let result = convert_executor_tools_to_anthropic(&tools, true, "5m");
 
     assert!(result.is_empty(), "Empty tools should return empty array");
@@ -56,7 +56,7 @@ fn test_empty_tools_with_caching_disabled() {
     // Test verifies empty tools with caching disabled
     // Should still return empty array
 
-    let tools: Vec<ExecutorTool> = vec![];
+    let tools: Vec<Tool> = vec![];
     let result = convert_executor_tools_to_anthropic(&tools, false, "5m");
 
     assert!(result.is_empty());
@@ -206,10 +206,10 @@ fn test_ttl_1h_configuration() {
 
 #[test]
 fn test_tool_format_conversion() {
-    // Test verifies ExecutorTool converts to correct Anthropic format
+    // Test verifies Tool converts to correct Anthropic format
     // Anthropic expects: name, description, input_schema
 
-    let tool = ExecutorTool {
+    let tool = Tool {
         name: "test_function".to_string(),
         description: "A test function with parameters".to_string(),
         parameters: serde_json::json!({
@@ -250,12 +250,12 @@ fn test_all_tools_preserve_schema() {
     // No information should be lost during conversion
 
     let tools = vec![
-        ExecutorTool {
+        Tool {
             name: "simple".to_string(),
             description: "Simple tool".to_string(),
             parameters: serde_json::json!({"type": "object"}),
         },
-        ExecutorTool {
+        Tool {
             name: "complex".to_string(),
             description: "Complex tool".to_string(),
             parameters: serde_json::json!({

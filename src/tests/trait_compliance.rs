@@ -1,15 +1,15 @@
 // Simplified Trait Compliance Tests for LLM Providers
 //
 // PURPOSE: Ensures architectural consistency across ALL LLM provider implementations
-// FOCUS: Tests the 3 core ExecutorLLMProvider methods following KISS principles
+// FOCUS: Tests the 3 core LlmProvider methods following KISS principles
 //
 // BUSINESS RESPONSIBILITY:
-//   - Validates that ALL providers implement ExecutorLLMProvider trait consistently
+//   - Validates that ALL providers implement LlmProvider trait consistently
 //   - Tests the 3 core methods: execute_llm, execute_structured_llm, provider_name
 //   - Ensures error handling produces consistent error types for same failure scenarios
 
 use crate::Message;
-use crate::core_types::executor::ExecutorLLMProvider;
+use crate::core_types::provider::LlmProvider;
 use serde_json::json;
 use std::sync::Arc;
 use wiremock::matchers::{method, path};
@@ -17,7 +17,7 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 /// Create all provider implementations for trait compliance testing
 async fn create_all_provider_implementations(
-) -> (MockServer, Vec<(String, Arc<dyn ExecutorLLMProvider>)>) {
+) -> (MockServer, Vec<(String, Arc<dyn LlmProvider>)>) {
     let mock_server = MockServer::start().await;
 
     // Use integration test helpers to create UnifiedLLMClient instances
@@ -33,15 +33,15 @@ async fn create_all_provider_implementations(
         vec![
             (
                 "OpenAI".to_string(),
-                Arc::new(openai_client) as Arc<dyn ExecutorLLMProvider>,
+                Arc::new(openai_client) as Arc<dyn LlmProvider>,
             ),
             (
                 "Anthropic".to_string(),
-                Arc::new(anthropic_client) as Arc<dyn ExecutorLLMProvider>,
+                Arc::new(anthropic_client) as Arc<dyn LlmProvider>,
             ),
             (
                 "LM Studio".to_string(),
-                Arc::new(lmstudio_client) as Arc<dyn ExecutorLLMProvider>,
+                Arc::new(lmstudio_client) as Arc<dyn LlmProvider>,
             ),
         ],
     )
@@ -54,7 +54,7 @@ mod tests {
     #[tokio::test]
     async fn test_all_providers_basic_interface_compliance() {
         // Test verifies ALL provider implementations expose consistent provider identification
-        // Simplified to focus on the core ExecutorLLMProvider interface
+        // Simplified to focus on the core LlmProvider interface
 
         // Arrange: Create all provider implementations
         let (_mock_server, providers) = create_all_provider_implementations().await;
@@ -82,7 +82,7 @@ mod tests {
     #[tokio::test]
     async fn test_all_providers_execute_llm_compliance() {
         // Test verifies ALL providers implement execute_llm consistently
-        // This is one of the 3 core methods in ExecutorLLMProvider
+        // This is one of the 3 core methods in LlmProvider
 
         // Arrange: Create all provider implementations and set up mocks
         let (mock_server, providers) = create_all_provider_implementations().await;
@@ -149,7 +149,7 @@ mod tests {
     #[tokio::test]
     async fn test_all_providers_execute_structured_llm_compliance() {
         // Test verifies ALL providers implement execute_structured_llm consistently
-        // This is the second of the 3 core methods in ExecutorLLMProvider
+        // This is the second of the 3 core methods in LlmProvider
 
         // Arrange: Create all provider implementations and set up mocks
         let (mock_server, providers) = create_all_provider_implementations().await;

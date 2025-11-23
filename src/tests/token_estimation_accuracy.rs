@@ -18,7 +18,7 @@
 
 use crate::providers::openai_shared::utils;
 use crate::Message;
-use crate::core_types::executor::ExecutorLLMProvider;
+use crate::core_types::provider::LlmProvider;
 use serde_json::json;
 use std::sync::Arc;
 use wiremock::matchers::{method, path};
@@ -26,7 +26,7 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 /// Helper to create provider implementations for estimation testing
 async fn create_providers_for_estimation_testing(
-) -> (MockServer, Vec<(String, Arc<dyn ExecutorLLMProvider>)>) {
+) -> (MockServer, Vec<(String, Arc<dyn LlmProvider>)>) {
     let mock_server = MockServer::start().await;
 
     // Use integration test helpers to create UnifiedLLMClient instances
@@ -42,15 +42,15 @@ async fn create_providers_for_estimation_testing(
         vec![
             (
                 "OpenAI".to_string(),
-                Arc::new(openai_client) as Arc<dyn ExecutorLLMProvider>,
+                Arc::new(openai_client) as Arc<dyn LlmProvider>,
             ),
             (
                 "Anthropic".to_string(),
-                Arc::new(anthropic_client) as Arc<dyn ExecutorLLMProvider>,
+                Arc::new(anthropic_client) as Arc<dyn LlmProvider>,
             ),
             (
                 "LM Studio".to_string(),
-                Arc::new(lmstudio_client) as Arc<dyn ExecutorLLMProvider>,
+                Arc::new(lmstudio_client) as Arc<dyn LlmProvider>,
             ),
         ],
     )

@@ -20,10 +20,8 @@
 
 use super::super::types::*;
 use super::super::utils::*;
-use crate::core_types::executor::{
-    ExecutorLLMConfig, ExecutorResponseFormat, ExecutorTool, ToolChoice,
-};
 use crate::core_types::messages::MessageAttributes;
+use crate::core_types::provider::{RequestConfig, ResponseFormat, Tool, ToolChoice};
 use crate::{MessageContent, MessageRole, UnifiedMessage};
 use chrono::Utc;
 use serde_json::json;
@@ -80,9 +78,9 @@ fn create_tool_result_message(tool_call_id: &str, content: &str, is_error: bool)
     }
 }
 
-/// Create test ExecutorLLMConfig with minimal fields
-fn create_test_executor_config() -> ExecutorLLMConfig {
-    ExecutorLLMConfig {
+/// Create test RequestConfig with minimal fields
+fn create_test_executor_config() -> RequestConfig {
+    RequestConfig {
         temperature: None,
         max_tokens: None,
         top_p: None,
@@ -241,7 +239,7 @@ fn test_convert_mixed_message_types() {
 fn test_convert_single_tool() {
     // Test verifies single tool conversion to OpenAI format
 
-    let tools = vec![ExecutorTool {
+    let tools = vec![Tool {
         name: "get_weather".to_string(),
         description: "Get current weather".to_string(),
         parameters: json!({
@@ -272,12 +270,12 @@ fn test_convert_multiple_tools() {
     // Test verifies multiple tool conversion
 
     let tools = vec![
-        ExecutorTool {
+        Tool {
             name: "tool1".to_string(),
             description: "First tool".to_string(),
             parameters: json!({"type": "object"}),
         },
-        ExecutorTool {
+        Tool {
             name: "tool2".to_string(),
             description: "Second tool".to_string(),
             parameters: json!({"type": "object"}),
@@ -295,7 +293,7 @@ fn test_convert_multiple_tools() {
 fn test_convert_empty_tool_array() {
     // Test verifies empty tool array handling
 
-    let tools: Vec<ExecutorTool> = vec![];
+    let tools: Vec<Tool> = vec![];
     let converted = convert_neutral_tools_to_openai(&tools);
 
     assert_eq!(converted.len(), 0);
@@ -305,7 +303,7 @@ fn test_convert_empty_tool_array() {
 fn test_convert_tool_with_complex_parameters() {
     // Test verifies complex parameter schemas are preserved
 
-    let tools = vec![ExecutorTool {
+    let tools = vec![Tool {
         name: "complex_tool".to_string(),
         description: "Tool with complex params".to_string(),
         parameters: json!({
@@ -413,7 +411,7 @@ fn test_apply_tools_for_user_llm() {
     };
 
     let mut config = create_test_executor_config();
-    config.tools = vec![ExecutorTool {
+    config.tools = vec![Tool {
         name: "test_tool".to_string(),
         description: "Test".to_string(),
         parameters: json!({}),
@@ -445,7 +443,7 @@ fn test_skip_tools_for_non_user_llm() {
 
     let mut config = create_test_executor_config();
     config.llm_path = Some("internal_llm".to_string());
-    config.tools = vec![ExecutorTool {
+    config.tools = vec![Tool {
         name: "test_tool".to_string(),
         description: "Test".to_string(),
         parameters: json!({}),
@@ -581,7 +579,7 @@ fn test_apply_response_format() {
     });
 
     let mut config = create_test_executor_config();
-    config.response_format = Some(ExecutorResponseFormat {
+    config.response_format = Some(ResponseFormat {
         name: "answer_schema".to_string(),
         schema: schema.clone(),
     });
@@ -620,13 +618,13 @@ fn test_apply_all_config_options() {
     config.max_tokens = Some(2000);
     config.top_p = Some(0.95);
     config.presence_penalty = Some(0.3);
-    config.tools = vec![ExecutorTool {
+    config.tools = vec![Tool {
         name: "tool1".to_string(),
         description: "Tool".to_string(),
         parameters: json!({}),
     }];
     config.tool_choice = Some(ToolChoice::Auto);
-    config.response_format = Some(ExecutorResponseFormat {
+    config.response_format = Some(ResponseFormat {
         name: "schema".to_string(),
         schema: json!({"type": "object"}),
     });

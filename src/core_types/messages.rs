@@ -306,7 +306,7 @@ pub struct UnifiedLLMRequest {
     /// Optional response schema for structured output
     pub response_schema: Option<serde_json::Value>,
     /// Configuration for this request
-    pub config: Option<crate::core_types::executor::ExecutorLLMConfig>,
+    pub config: Option<crate::core_types::provider::RequestConfig>,
 }
 
 impl UnifiedLLMRequest {
@@ -331,7 +331,7 @@ impl UnifiedLLMRequest {
     /// Create a new request with config
     pub fn with_config(
         messages: Vec<UnifiedMessage>,
-        config: crate::core_types::executor::ExecutorLLMConfig,
+        config: crate::core_types::provider::RequestConfig,
     ) -> Self {
         Self {
             messages,

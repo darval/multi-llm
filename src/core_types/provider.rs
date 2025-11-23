@@ -1,7 +1,7 @@
-//! Executor types and traits for LLM provider abstraction
+//! Provider trait and types for LLM abstraction
 //!
-//! These types define the contract between the executor and LLM providers.
-//! Phase 2 will review ownership - this trait should probably live in multi-llm.
+//! Defines the `LlmProvider` trait that all providers implement, along with
+//! request/response types, tool definitions, and configuration.
 
 use crate::core_types::errors::UserErrorCategory;
 use crate::core_types::events::{BusinessEvent, EventScope};
@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 /// Tool definition for LLM operations
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct ExecutorTool {
+pub struct Tool {
     /// Tool name - must be unique within a request
     pub name: String,
     /// Human-readable description
@@ -22,7 +22,7 @@ pub struct ExecutorTool {
 
 /// Tool call from LLM response
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct ExecutorToolCall {
+pub struct ToolCall {
     /// Unique identifier for this tool call
     pub id: String,
     /// Name of the tool to call
@@ -33,7 +33,7 @@ pub struct ExecutorToolCall {
 
 /// Tool execution result to send back to LLM
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct ExecutorToolResult {
+pub struct ToolResult {
     /// ID of the tool call this is responding to
     pub tool_call_id: String,
     /// Result content from the tool execution
@@ -60,7 +60,7 @@ pub enum ToolChoice {
 
 /// Configuration for LLM operations
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
-pub struct ExecutorLLMConfig {
+pub struct RequestConfig {
     // Standard LLM parameters
     /// Temperature setting for response randomness (0.0 to 1.0)
     pub temperature: Option<f64>,
@@ -75,11 +75,11 @@ pub struct ExecutorLLMConfig {
     /// Presence penalty to discourage repetition
     pub presence_penalty: Option<f64>,
     /// Response format specification (for structured output)
-    pub response_format: Option<ExecutorResponseFormat>,
+    pub response_format: Option<ResponseFormat>,
 
     // Tool-specific configuration
     /// Tools available for this request
-    pub tools: Vec<ExecutorTool>,
+    pub tools: Vec<Tool>,
     /// How the model should handle tool selection
     pub tool_choice: Option<ToolChoice>,
 
@@ -94,7 +94,7 @@ pub struct ExecutorLLMConfig {
 
 /// Response format specification for structured output
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct ExecutorResponseFormat {
+pub struct ResponseFormat {
     /// Name of the JSON schema
     pub name: String,
     /// JSON schema specification
@@ -103,7 +103,7 @@ pub struct ExecutorResponseFormat {
 
 /// Token usage information
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct ExecutorTokenUsage {
+pub struct TokenUsage {
     /// Number of tokens in the prompt
     pub prompt_tokens: u32,
     /// Number of tokens in the completion
@@ -114,15 +114,15 @@ pub struct ExecutorTokenUsage {
 
 /// Response from LLM operations
 #[derive(Debug, Clone)]
-pub struct ExecutorLLMResponse {
+pub struct Response {
     /// Primary text content of the response
     pub content: String,
     /// Structured JSON response (if response_format was specified)
     pub structured_response: Option<serde_json::Value>,
     /// Tool calls made by the LLM (if any)
-    pub tool_calls: Vec<ExecutorToolCall>,
+    pub tool_calls: Vec<ToolCall>,
     /// Token usage information
-    pub usage: Option<ExecutorTokenUsage>,
+    pub usage: Option<TokenUsage>,
     /// Model that generated the response
     pub model: Option<String>,
     /// Raw response body for debugging
@@ -144,7 +144,7 @@ pub struct ToolCallingRound {
     /// The complete assistant message that initiated tool calls
     pub assistant_message: UnifiedMessage,
     /// Tool execution results from the current round
-    pub tool_results: Vec<ExecutorToolResult>,
+    pub tool_results: Vec<ToolResult>,
 }
 
 /// Trait for LLM providers to implement
@@ -152,7 +152,7 @@ pub struct ToolCallingRound {
 /// This trait defines the contract between multi-llm and LLM providers.
 /// Phase 2 should consider if this trait belongs in multi-llm rather than being extracted.
 #[async_trait::async_trait]
-pub trait ExecutorLLMProvider: Send + Sync {
+pub trait LlmProvider: Send + Sync {
     /// Execute LLM operation with unified context
     ///
     /// Returns a tuple of (response, events) where events are business events
@@ -161,25 +161,25 @@ pub trait ExecutorLLMProvider: Send + Sync {
         &self,
         request: UnifiedLLMRequest,
         current_tool_round: Option<ToolCallingRound>,
-        config: Option<ExecutorLLMConfig>,
-    ) -> Result<(ExecutorLLMResponse, Vec<LLMBusinessEvent>)>;
+        config: Option<RequestConfig>,
+    ) -> Result<(Response, Vec<LLMBusinessEvent>)>;
 
     /// Execute structured LLM operation with unified context
     ///
-    /// Returns ExecutorLLMResponse with structured_response field populated.
+    /// Returns Response with structured_response field populated.
     async fn execute_structured_llm(
         &self,
         request: UnifiedLLMRequest,
         current_tool_round: Option<ToolCallingRound>,
         schema: serde_json::Value,
-        config: Option<ExecutorLLMConfig>,
-    ) -> Result<(ExecutorLLMResponse, Vec<LLMBusinessEvent>)>;
+        config: Option<RequestConfig>,
+    ) -> Result<(Response, Vec<LLMBusinessEvent>)>;
 
     /// Get provider name for logging and debugging
     fn provider_name(&self) -> &'static str;
 }
 
 /// Type aliases for backward compatibility
-pub type LLMRequestConfig = ExecutorLLMConfig;
-pub type LLMResponseFormat = ExecutorResponseFormat;
-pub type TokenUsage = ExecutorTokenUsage;
+pub type LLMRequestConfig = RequestConfig;
+pub type LLMResponseFormat = ResponseFormat;
+pub type LLMTokenUsage = TokenUsage;

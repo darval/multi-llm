@@ -10,7 +10,7 @@
 
 use super::helpers::*;
 use crate::Message;
-use crate::core_types::executor::ExecutorLLMProvider;
+use crate::core_types::provider::LlmProvider;
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -84,7 +84,7 @@ mod tests {
 
         let client = create_integration_openai_client(&mock_server).await;
         let messages = create_integration_test_messages();
-        let config = crate::core_types::executor::ExecutorLLMConfig {
+        let config = crate::core_types::provider::RequestConfig {
             temperature: Some(0.9),
             max_tokens: Some(1000),
             top_p: Some(0.8),

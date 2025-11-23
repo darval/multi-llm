@@ -10,7 +10,7 @@
 
 use super::helpers::*;
 use crate::providers::openai_shared::{utils, OpenAIJsonSchema};
-use crate::core_types::executor::LLMRequestConfig;
+use crate::core_types::provider::LLMRequestConfig;
 
 #[cfg(test)]
 mod tests {
@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_llm_response_format_consistency_across_story_schemas() {
-        // Test verifies ExecutorResponseFormat maintains consistent behavior
+        // Test verifies ResponseFormat maintains consistent behavior
         // for story analysis schemas regardless of complexity or use case
 
         // Arrange: Create different story analysis formats using helpers

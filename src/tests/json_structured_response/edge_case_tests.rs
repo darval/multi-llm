@@ -1,6 +1,6 @@
 // Unit Tests for Edge Cases and Error Conditions
 //
-// UNIT UNDER TEST: ExecutorLLMResponse, ExecutorResponseFormat, OpenAI types (edge case behavior)
+// UNIT UNDER TEST: Response, ResponseFormat, OpenAI types (edge case behavior)
 //
 // BUSINESS RESPONSIBILITY:
 //   - Maintains system stability when LLM responses are incomplete or malformed
@@ -9,8 +9,8 @@
 //   - Validates system handles various schema validation modes (strict vs non-strict)
 
 use crate::providers::openai_shared::OpenAIJsonSchema;
-use crate::core_types::executor::ExecutorLLMResponse;
-use crate::core_types::executor::ExecutorResponseFormat;
+use crate::core_types::provider::Response;
+use crate::core_types::provider::ResponseFormat;
 use serde_json::json;
 
 #[cfg(test)]
@@ -19,8 +19,8 @@ mod tests {
 
     #[test]
     fn test_empty_structured_response() {
-        // Test ExecutorLLMResponse with empty structured response
-        let response = ExecutorLLMResponse {
+        // Test Response with empty structured response
+        let response = Response {
             content: "Simple text response".to_string(),
             structured_response: None,
             tool_calls: vec![],
@@ -36,7 +36,7 @@ mod tests {
     #[test]
     fn test_structured_response_with_empty_schema() {
         // Test with minimal empty schema
-        let response = ExecutorLLMResponse {
+        let response = Response {
             content: "{}".to_string(),
             structured_response: Some(json!({})),
             tool_calls: vec![],
@@ -52,7 +52,7 @@ mod tests {
     #[test]
     fn test_response_format_with_empty_name() {
         // Test edge case with empty schema name
-        let format = ExecutorResponseFormat {
+        let format = ResponseFormat {
             name: String::new(),
             schema: json!({"type": "object"}),
         };

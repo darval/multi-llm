@@ -1,7 +1,7 @@
-//! Trait Compliance Tests for ExecutorLLMProvider
+//! Trait Compliance Tests for LlmProvider
 //!
 //! **CRITICAL TESTS**: These tests verify that ALL provider implementations of the
-//! `ExecutorLLMProvider` trait behave consistently. This catches issues where one
+//! `LlmProvider` trait behave consistently. This catches issues where one
 //! provider behaves differently from others.
 //!
 //! ## Why These Tests Are Critical
@@ -33,7 +33,7 @@
 
 mod common;
 use common::*;
-use multi_llm::core_types::executor::ExecutorLLMProvider;
+use multi_llm::core_types::provider::LlmProvider;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 

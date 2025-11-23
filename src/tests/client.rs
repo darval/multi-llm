@@ -13,7 +13,7 @@
 //   - Error handling for invalid/missing configurations
 //   - Provider name validation
 //
-// NOTE: The actual ExecutorLLMProvider interface testing is in trait_compliance.rs
+// NOTE: The actual LlmProvider interface testing is in trait_compliance.rs
 // This file only tests the factory/configuration aspects of UnifiedLLMClient
 
 use crate::client::UnifiedLLMClient;
@@ -28,7 +28,7 @@ use crate::tests::helpers::create_test_config;
 #[cfg(test)]
 mod factory_method_tests {
     use super::*;
-    use crate::core_types::executor::ExecutorLLMProvider;
+    use crate::core_types::provider::LlmProvider;
 
     #[test]
     fn test_from_config_with_anthropic() {
@@ -285,7 +285,7 @@ mod factory_method_tests {
 #[cfg(test)]
 mod provider_name_tests {
     use super::*;
-    use crate::core_types::executor::ExecutorLLMProvider;
+    use crate::core_types::provider::LlmProvider;
 
     #[test]
     fn test_anthropic_client_returns_correct_provider_name() {

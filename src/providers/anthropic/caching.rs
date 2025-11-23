@@ -1,11 +1,11 @@
 //! Caching control logic for Anthropic prompt caching
 
-use crate::core_types::executor::ExecutorTool;
+use crate::core_types::provider::Tool;
 use serde_json::Value;
 
 /// Convert executor tools to Anthropic format with caching support
 pub(super) fn convert_executor_tools_to_anthropic(
-    tools: &[ExecutorTool],
+    tools: &[Tool],
     enable_caching: bool,
     cache_ttl: &str,
 ) -> Vec<Value> {
