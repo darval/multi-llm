@@ -7,11 +7,15 @@ use super::openai_shared::{
     http::OpenAICompatibleClient, utils::apply_config_to_request, OpenAIRequest, OpenAIResponse,
 };
 use crate::config::{DefaultLLMParams, OllamaConfig};
+#[cfg(feature = "events")]
 use crate::core_types::event_types;
+#[cfg(feature = "events")]
 use crate::core_types::events::{BusinessEvent, EventScope};
 use crate::core_types::messages::{MessageContent, MessageRole, UnifiedLLMRequest, UnifiedMessage};
+#[cfg(feature = "events")]
+use crate::core_types::provider::LLMBusinessEvent;
 use crate::core_types::provider::{
-    LLMBusinessEvent, LlmProvider, RequestConfig, Response, TokenUsage, ToolCallingRound,
+    LlmProvider, RequestConfig, Response, TokenUsage, ToolCallingRound,
 };
 use crate::error::{LlmError, LlmResult};
 use crate::log_debug;
@@ -117,6 +121,7 @@ impl OllamaProvider {
     }
 
     /// Create LLM request business event
+    #[cfg(feature = "events")]
     fn create_request_event(
         &self,
         request: &OpenAIRequest,
@@ -135,6 +140,7 @@ impl OllamaProvider {
     }
 
     /// Create LLM error business event
+    #[cfg(feature = "events")]
     fn create_error_event(
         &self,
         error: &LlmError,
@@ -153,6 +159,7 @@ impl OllamaProvider {
     }
 
     /// Create LLM response business event
+    #[cfg(feature = "events")]
     fn create_response_event(
         &self,
         api_response: &OpenAIResponse,
@@ -180,6 +187,49 @@ impl OllamaProvider {
             event,
             scope: EventScope::User(user_id),
         })
+    }
+
+    /// Core LLM execution logic shared between events and non-events versions
+    async fn execute_llm_internal(
+        &self,
+        request: UnifiedLLMRequest,
+        config: Option<RequestConfig>,
+    ) -> crate::core_types::Result<(Response, OpenAIResponse, u64, OpenAIRequest)> {
+        // Create base request and apply config
+        let mut openai_request = self.create_base_request(&request);
+        if let Some(cfg) = config.as_ref() {
+            apply_config_to_request(&mut openai_request, Some(cfg.clone()));
+        }
+        self.apply_response_schema(&mut openai_request, request.response_schema);
+
+        log_debug!(
+            provider = "ollama",
+            request_json = %serde_json::to_string(&openai_request).unwrap_or_default(),
+            "Executing LLM request"
+        );
+
+        // Clone request for event creation
+        let openai_request_for_events = openai_request.clone();
+
+        // Send to Ollama API
+        let start_time = Instant::now();
+        let api_response = self
+            .send_ollama_request(&openai_request)
+            .await
+            .map_err(|e| anyhow::anyhow!("Ollama API error: {}", e))?;
+        let duration_ms = start_time.elapsed().as_millis() as u64;
+
+        // Parse response
+        let response = self
+            .parse_ollama_response(api_response.clone())
+            .map_err(|e| anyhow::anyhow!("Failed to parse response: {}", e))?;
+
+        Ok((
+            response,
+            api_response,
+            duration_ms,
+            openai_request_for_events,
+        ))
     }
 
     /// Transform unified messages to OpenAI-compatible format for Ollama
@@ -295,6 +345,7 @@ impl OllamaProvider {
 
 #[async_trait::async_trait]
 impl LlmProvider for OllamaProvider {
+    #[cfg(feature = "events")]
     async fn execute_llm(
         &self,
         request: UnifiedLLMRequest,
@@ -303,51 +354,48 @@ impl LlmProvider for OllamaProvider {
     ) -> crate::core_types::Result<(Response, Vec<LLMBusinessEvent>)> {
         let mut events = Vec::new();
 
-        // Create base request and apply config
-        let mut openai_request = self.create_base_request(&request);
-        if let Some(cfg) = config.as_ref() {
-            apply_config_to_request(&mut openai_request, Some(cfg.clone()));
-        }
-        self.apply_response_schema(&mut openai_request, request.response_schema);
+        // Execute core logic and collect event data
+        let (response, api_response, duration_ms, openai_request) =
+            match self.execute_llm_internal(request, config.clone()).await {
+                Ok(result) => result,
+                Err(e) => {
+                    // On error, log error event
+                    if let Some(llm_error) = e.downcast_ref::<LlmError>() {
+                        if let Some(event) = self.create_error_event(llm_error, config.as_ref()) {
+                            events.push(event);
+                        }
+                    }
+                    return Err(e);
+                }
+            };
 
-        log_debug!(
-            provider = "ollama",
-            request_json = %serde_json::to_string(&openai_request).unwrap_or_default(),
-            "Executing LLM request"
-        );
-
-        // Log LLM request event
+        // Log request event
         if let Some(event) = self.create_request_event(&openai_request, config.as_ref()) {
             events.push(event);
         }
 
-        // Send to Ollama API
-        let start_time = Instant::now();
-        let api_response = match self.send_ollama_request(&openai_request).await {
-            Ok(response) => response,
-            Err(e) => {
-                if let Some(event) = self.create_error_event(&e, config.as_ref()) {
-                    events.push(event);
-                }
-                return Err(anyhow::anyhow!("Ollama API error: {}", e));
-            }
-        };
-        let duration_ms = start_time.elapsed().as_millis() as u64;
-
-        // Log LLM response event
+        // Log response event
         if let Some(event) = self.create_response_event(&api_response, duration_ms, config.as_ref())
         {
             events.push(event);
         }
 
-        // Parse response
-        let response = self
-            .parse_ollama_response(api_response)
-            .map_err(|e| anyhow::anyhow!("Failed to parse response: {}", e))?;
-
         Ok((response, events))
     }
 
+    #[cfg(not(feature = "events"))]
+    async fn execute_llm(
+        &self,
+        request: UnifiedLLMRequest,
+        _current_tool_round: Option<ToolCallingRound>,
+        config: Option<RequestConfig>,
+    ) -> crate::core_types::Result<Response> {
+        let (response, _api_response, _duration_ms, _openai_request) =
+            self.execute_llm_internal(request, config).await?;
+        Ok(response)
+    }
+
+    #[cfg(feature = "events")]
     async fn execute_structured_llm(
         &self,
         mut request: UnifiedLLMRequest,
@@ -359,6 +407,21 @@ impl LlmProvider for OllamaProvider {
         request.response_schema = Some(schema);
 
         // Execute with the schema-enabled request (returns tuple with events)
+        self.execute_llm(request, current_tool_round, config).await
+    }
+
+    #[cfg(not(feature = "events"))]
+    async fn execute_structured_llm(
+        &self,
+        mut request: UnifiedLLMRequest,
+        current_tool_round: Option<ToolCallingRound>,
+        schema: serde_json::Value,
+        config: Option<RequestConfig>,
+    ) -> crate::core_types::Result<Response> {
+        // Set the schema in the request
+        request.response_schema = Some(schema);
+
+        // Execute with the schema-enabled request
         self.execute_llm(request, current_tool_round, config).await
     }
 

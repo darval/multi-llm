@@ -1,15 +1,14 @@
 use crate::config::{AnthropicConfig, LLMConfig, LMStudioConfig, OllamaConfig, OpenAIConfig};
+#[cfg(feature = "events")]
+use crate::core_types::provider::LLMBusinessEvent;
 use crate::core_types::{
     messages::UnifiedLLMRequest,
-    provider::{
-        LLMBusinessEvent, LlmProvider, RequestConfig, Response, ResponseFormat, ToolCallingRound,
-    },
+    provider::{LlmProvider, RequestConfig, Response, ToolCallingRound},
 };
 use crate::error::{LlmError, LlmResult};
+use crate::log_debug;
 use crate::providers::{AnthropicProvider, LMStudioProvider, OllamaProvider, OpenAIProvider};
-use crate::{log_debug, log_error};
 use async_trait::async_trait;
-use std::time::Instant;
 
 /// Internal provider enum for UnifiedLLMClient
 enum LLMProvider {
@@ -23,7 +22,6 @@ enum LLMProvider {
 /// This is the primary interface for multi-provider LLM operations
 pub struct UnifiedLLMClient {
     provider: LLMProvider,
-    model: String,
 }
 
 impl UnifiedLLMClient {
@@ -133,7 +131,7 @@ impl UnifiedLLMClient {
             "UnifiedLLMClient created"
         );
 
-        Ok(Self { provider, model })
+        Ok(Self { provider })
     }
 
     /// Create a client using environment variables for configuration
@@ -173,88 +171,58 @@ impl UnifiedLLMClient {
 }
 
 /// Implement LlmProvider for UnifiedLLMClient
-/// This preserves all the existing functionality while adapting to the new trait interface
+/// Just delegates to the underlying provider - providers already handle events feature correctly
 #[async_trait]
 impl LlmProvider for UnifiedLLMClient {
+    #[cfg(feature = "events")]
     async fn execute_llm(
         &self,
         request: UnifiedLLMRequest,
         current_tool_round: Option<ToolCallingRound>,
         config: Option<RequestConfig>,
     ) -> crate::core_types::Result<(Response, Vec<LLMBusinessEvent>)> {
-        let start = Instant::now();
-
-        // Convert RequestConfig to internal RequestConfig (they're the same now)
-        let internal_config = config;
-
-        // Use default retry policy for executor operations
+        // Restore default retry policy
         match &self.provider {
-            LLMProvider::Anthropic(provider) => {
-                provider.restore_default_retry_policy().await;
-            }
-            LLMProvider::OpenAI(provider) => {
-                provider.restore_default_retry_policy().await;
-            }
-            LLMProvider::LMStudio(provider) => {
-                provider.restore_default_retry_policy().await;
-            }
-            LLMProvider::Ollama(provider) => {
-                provider.restore_default_retry_policy().await;
-            }
+            LLMProvider::Anthropic(p) => p.restore_default_retry_policy().await,
+            LLMProvider::OpenAI(p) => p.restore_default_retry_policy().await,
+            LLMProvider::LMStudio(p) => p.restore_default_retry_policy().await,
+            LLMProvider::Ollama(p) => p.restore_default_retry_policy().await,
         }
 
-        // Execute request with the configured retry policy
-        let result = match &self.provider {
-            LLMProvider::Anthropic(provider) => {
-                provider
-                    .execute_llm(request.clone(), current_tool_round.clone(), internal_config)
-                    .await
-            }
-            LLMProvider::OpenAI(provider) => {
-                provider
-                    .execute_llm(request.clone(), current_tool_round.clone(), internal_config)
-                    .await
-            }
-            LLMProvider::LMStudio(provider) => {
-                provider
-                    .execute_llm(request.clone(), current_tool_round.clone(), internal_config)
-                    .await
-            }
-            LLMProvider::Ollama(provider) => {
-                provider
-                    .execute_llm(request.clone(), current_tool_round.clone(), internal_config)
-                    .await
-            }
-        };
-
-        match result {
-            Ok((response, events)) => {
-                log_debug!(
-                    duration_ms = start.elapsed().as_millis(),
-                    input_tokens = response.usage.as_ref().map_or(0, |u| u.prompt_tokens),
-                    output_tokens = response.usage.as_ref().map_or(0, |u| u.completion_tokens),
-                    total_tokens = response.usage.as_ref().map_or(0, |u| u.total_tokens),
-                    provider = self.provider_name(),
-                    model = %self.model,
-                    "LlmProvider request completed successfully"
-                );
-
-                // Return response and events (events are already collected by provider)
-                Ok((response, events))
-            }
-            Err(e) => {
-                log_error!(
-                    duration_ms = start.elapsed().as_millis(),
-                    error = %e,
-                    provider = self.provider_name(),
-                    model = %self.model,
-                    "LlmProvider request failed"
-                );
-                Err(anyhow::anyhow!("LLM execution failed: {}", e))
-            }
+        // Delegate to provider
+        match &self.provider {
+            LLMProvider::Anthropic(p) => p.execute_llm(request, current_tool_round, config).await,
+            LLMProvider::OpenAI(p) => p.execute_llm(request, current_tool_round, config).await,
+            LLMProvider::LMStudio(p) => p.execute_llm(request, current_tool_round, config).await,
+            LLMProvider::Ollama(p) => p.execute_llm(request, current_tool_round, config).await,
         }
     }
 
+    #[cfg(not(feature = "events"))]
+    async fn execute_llm(
+        &self,
+        request: UnifiedLLMRequest,
+        current_tool_round: Option<ToolCallingRound>,
+        config: Option<RequestConfig>,
+    ) -> crate::core_types::Result<Response> {
+        // Restore default retry policy
+        match &self.provider {
+            LLMProvider::Anthropic(p) => p.restore_default_retry_policy().await,
+            LLMProvider::OpenAI(p) => p.restore_default_retry_policy().await,
+            LLMProvider::LMStudio(p) => p.restore_default_retry_policy().await,
+            LLMProvider::Ollama(p) => p.restore_default_retry_policy().await,
+        }
+
+        // Delegate to provider
+        match &self.provider {
+            LLMProvider::Anthropic(p) => p.execute_llm(request, current_tool_round, config).await,
+            LLMProvider::OpenAI(p) => p.execute_llm(request, current_tool_round, config).await,
+            LLMProvider::LMStudio(p) => p.execute_llm(request, current_tool_round, config).await,
+            LLMProvider::Ollama(p) => p.execute_llm(request, current_tool_round, config).await,
+        }
+    }
+
+    #[cfg(feature = "events")]
     async fn execute_structured_llm(
         &self,
         request: UnifiedLLMRequest,
@@ -262,101 +230,68 @@ impl LlmProvider for UnifiedLLMClient {
         schema: serde_json::Value,
         config: Option<RequestConfig>,
     ) -> crate::core_types::Result<(Response, Vec<LLMBusinessEvent>)> {
-        let start = Instant::now();
-
-        // Convert RequestConfig and add structured response format
-        let mut internal_config = config.unwrap_or_default();
-
-        // Add the JSON schema to the response format (overrides any existing format)
-        internal_config.response_format = Some(ResponseFormat {
-            name: "structured_response".to_string(),
-            schema: schema.clone(),
-        });
-
-        // Use default retry policy for executor operations
+        // Restore default retry policy
         match &self.provider {
-            LLMProvider::Anthropic(provider) => {
-                provider.restore_default_retry_policy().await;
-            }
-            LLMProvider::OpenAI(provider) => {
-                provider.restore_default_retry_policy().await;
-            }
-            LLMProvider::LMStudio(provider) => {
-                provider.restore_default_retry_policy().await;
-            }
-            LLMProvider::Ollama(provider) => {
-                provider.restore_default_retry_policy().await;
-            }
+            LLMProvider::Anthropic(p) => p.restore_default_retry_policy().await,
+            LLMProvider::OpenAI(p) => p.restore_default_retry_policy().await,
+            LLMProvider::LMStudio(p) => p.restore_default_retry_policy().await,
+            LLMProvider::Ollama(p) => p.restore_default_retry_policy().await,
         }
 
-        // Execute request with the configured retry policy
-        let result = match &self.provider {
-            LLMProvider::Anthropic(provider) => {
-                provider
-                    .execute_structured_llm(
-                        request.clone(),
-                        current_tool_round.clone(),
-                        schema.clone(),
-                        Some(internal_config),
-                    )
+        // Delegate to provider
+        match &self.provider {
+            LLMProvider::Anthropic(p) => {
+                p.execute_structured_llm(request, current_tool_round, schema, config)
                     .await
             }
-            LLMProvider::OpenAI(provider) => {
-                provider
-                    .execute_structured_llm(
-                        request.clone(),
-                        current_tool_round.clone(),
-                        schema.clone(),
-                        Some(internal_config),
-                    )
+            LLMProvider::OpenAI(p) => {
+                p.execute_structured_llm(request, current_tool_round, schema, config)
                     .await
             }
-            LLMProvider::LMStudio(provider) => {
-                provider
-                    .execute_structured_llm(
-                        request.clone(),
-                        current_tool_round.clone(),
-                        schema.clone(),
-                        Some(internal_config),
-                    )
+            LLMProvider::LMStudio(p) => {
+                p.execute_structured_llm(request, current_tool_round, schema, config)
                     .await
             }
-            LLMProvider::Ollama(provider) => {
-                provider
-                    .execute_structured_llm(
-                        request.clone(),
-                        current_tool_round.clone(),
-                        schema.clone(),
-                        Some(internal_config),
-                    )
+            LLMProvider::Ollama(p) => {
+                p.execute_structured_llm(request, current_tool_round, schema, config)
                     .await
             }
-        };
+        }
+    }
 
-        match result {
-            Ok((response, events)) => {
-                log_debug!(
-                    duration_ms = start.elapsed().as_millis(),
-                    input_tokens = response.usage.as_ref().map_or(0, |u| u.prompt_tokens),
-                    output_tokens = response.usage.as_ref().map_or(0, |u| u.completion_tokens),
-                    total_tokens = response.usage.as_ref().map_or(0, |u| u.total_tokens),
-                    provider = self.provider_name(),
-                    model = %self.model,
-                    "LlmProvider structured request completed successfully"
-                );
+    #[cfg(not(feature = "events"))]
+    async fn execute_structured_llm(
+        &self,
+        request: UnifiedLLMRequest,
+        current_tool_round: Option<ToolCallingRound>,
+        schema: serde_json::Value,
+        config: Option<RequestConfig>,
+    ) -> crate::core_types::Result<Response> {
+        // Restore default retry policy
+        match &self.provider {
+            LLMProvider::Anthropic(p) => p.restore_default_retry_policy().await,
+            LLMProvider::OpenAI(p) => p.restore_default_retry_policy().await,
+            LLMProvider::LMStudio(p) => p.restore_default_retry_policy().await,
+            LLMProvider::Ollama(p) => p.restore_default_retry_policy().await,
+        }
 
-                // Return response and events (events are already collected by provider)
-                Ok((response, events))
+        // Delegate to provider
+        match &self.provider {
+            LLMProvider::Anthropic(p) => {
+                p.execute_structured_llm(request, current_tool_round, schema, config)
+                    .await
             }
-            Err(e) => {
-                log_error!(
-                    duration_ms = start.elapsed().as_millis(),
-                    error = %e,
-                    provider = self.provider_name(),
-                    model = %self.model,
-                    "LlmProvider structured request failed"
-                );
-                Err(anyhow::anyhow!("Structured LLM execution failed: {}", e))
+            LLMProvider::OpenAI(p) => {
+                p.execute_structured_llm(request, current_tool_round, schema, config)
+                    .await
+            }
+            LLMProvider::LMStudio(p) => {
+                p.execute_structured_llm(request, current_tool_round, schema, config)
+                    .await
+            }
+            LLMProvider::Ollama(p) => {
+                p.execute_structured_llm(request, current_tool_round, schema, config)
+                    .await
             }
         }
     }

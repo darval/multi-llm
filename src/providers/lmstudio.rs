@@ -8,11 +8,15 @@ use super::openai_shared::{
 };
 // Removed LLMClientCore import - providers now implement their own methods directly
 use crate::config::{DefaultLLMParams, LMStudioConfig};
+#[cfg(feature = "events")]
 use crate::core_types::event_types;
+#[cfg(feature = "events")]
 use crate::core_types::events::{BusinessEvent, EventScope};
 use crate::core_types::messages::{MessageContent, MessageRole, UnifiedLLMRequest, UnifiedMessage};
+#[cfg(feature = "events")]
+use crate::core_types::provider::LLMBusinessEvent;
 use crate::core_types::provider::{
-    LLMBusinessEvent, LlmProvider, RequestConfig, Response, TokenUsage, ToolCallingRound,
+    LlmProvider, RequestConfig, Response, TokenUsage, ToolCallingRound,
 };
 use crate::error::{LlmError, LlmResult};
 use crate::log_debug;
@@ -70,13 +74,12 @@ impl LMStudioProvider {
     }
 
     /// Create base OpenAI-compatible request
-    fn create_base_request(
-        &self,
-        messages: Vec<super::openai_shared::OpenAIMessage>,
-    ) -> OpenAIRequest {
+    fn create_base_request(&self, request: &UnifiedLLMRequest) -> OpenAIRequest {
+        let openai_messages = self.transform_unified_messages(&request.get_sorted_messages());
+
         OpenAIRequest {
             model: self.config.default_model.clone(),
-            messages,
+            messages: openai_messages,
             temperature: Some(self.default_params.temperature),
             max_tokens: Some(self.default_params.max_tokens),
             top_p: Some(self.default_params.top_p),
@@ -86,6 +89,23 @@ impl LMStudioProvider {
             tool_choice: None,
             response_format: None,
         }
+    }
+
+    /// Send request to LM Studio API
+    async fn send_lmstudio_request(&self, request: &OpenAIRequest) -> LlmResult<OpenAIResponse> {
+        let url = format!("{}/v1/chat/completions", self.config.base_url);
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert(
+            reqwest::header::CONTENT_TYPE,
+            reqwest::header::HeaderValue::from_static("application/json"),
+        );
+
+        self.http_client
+            .execute_chat_request(&url, &headers, request)
+            .await
+            .map_err(|e| {
+                LlmError::request_failed(format!("LM Studio API error: {}", e), Some(Box::new(e)))
+            })
     }
 
     /// Apply response schema to request
@@ -107,6 +127,7 @@ impl LMStudioProvider {
     }
 
     /// Create LLM request business event
+    #[cfg(feature = "events")]
     fn create_request_event(&self, model: &str, user_id: &str) -> LLMBusinessEvent {
         let event = BusinessEvent::new(event_types::LLM_REQUEST)
             .with_metadata("provider", "lmstudio")
@@ -119,6 +140,7 @@ impl LMStudioProvider {
     }
 
     /// Create LLM error business event
+    #[cfg(feature = "events")]
     fn create_error_event(&self, error: &LlmError, user_id: &str) -> LLMBusinessEvent {
         let event = BusinessEvent::new(event_types::LLM_ERROR)
             .with_metadata("provider", "lmstudio")
@@ -131,6 +153,7 @@ impl LMStudioProvider {
     }
 
     /// Create LLM response business event
+    #[cfg(feature = "events")]
     fn create_response_event(
         &self,
         response: &OpenAIResponse,
@@ -160,28 +183,14 @@ impl LMStudioProvider {
         })
     }
 
-    /// Internal method for executor pattern - restore default retry policy
-    pub(crate) async fn restore_default_retry_policy(&self) {
-        // LMStudio provider doesn't need explicit retry policy restoration
-        // The client manages retry state internally
-    }
-}
-
-#[async_trait::async_trait]
-impl LlmProvider for LMStudioProvider {
-    async fn execute_llm(
+    /// Core LLM execution logic shared between events and non-events versions
+    async fn execute_llm_internal(
         &self,
         request: UnifiedLLMRequest,
-        _current_tool_round: Option<ToolCallingRound>,
         config: Option<RequestConfig>,
-    ) -> crate::core_types::Result<(Response, Vec<LLMBusinessEvent>)> {
-        let mut events = Vec::new();
-
-        // Create base request
-        let openai_messages = self.transform_unified_messages(&request.get_sorted_messages());
-        let mut openai_request = self.create_base_request(openai_messages);
-
-        // Apply config and schema
+    ) -> crate::core_types::Result<(Response, OpenAIResponse, u64, OpenAIRequest)> {
+        // Create base request and apply config
+        let mut openai_request = self.create_base_request(&request);
         if let Some(cfg) = config.as_ref() {
             apply_config_to_request(&mut openai_request, Some(cfg.clone()));
         }
@@ -193,34 +202,67 @@ impl LlmProvider for LMStudioProvider {
             "Executing LLM request"
         );
 
+        // Clone request for event creation
+        let openai_request_for_events = openai_request.clone();
+
+        // Send to LM Studio API
+        let start_time = Instant::now();
+        let api_response = self
+            .send_lmstudio_request(&openai_request)
+            .await
+            .map_err(|e| anyhow::anyhow!("LM Studio API error: {}", e))?;
+        let duration_ms = start_time.elapsed().as_millis() as u64;
+
+        // Parse response
+        let response = self
+            .parse_lmstudio_response(api_response.clone())
+            .map_err(|e| anyhow::anyhow!("Failed to parse response: {}", e))?;
+
+        Ok((
+            response,
+            api_response,
+            duration_ms,
+            openai_request_for_events,
+        ))
+    }
+
+    /// Internal method for executor pattern - restore default retry policy
+    pub(crate) async fn restore_default_retry_policy(&self) {
+        // LMStudio provider doesn't need explicit retry policy restoration
+        // The client manages retry state internally
+    }
+}
+
+#[async_trait::async_trait]
+impl LlmProvider for LMStudioProvider {
+    #[cfg(feature = "events")]
+    async fn execute_llm(
+        &self,
+        request: UnifiedLLMRequest,
+        _current_tool_round: Option<ToolCallingRound>,
+        config: Option<RequestConfig>,
+    ) -> crate::core_types::Result<(Response, Vec<LLMBusinessEvent>)> {
+        let mut events = Vec::new();
+
+        // Execute core logic and collect event data
+        let (response, api_response, duration_ms, openai_request) =
+            match self.execute_llm_internal(request, config.clone()).await {
+                Ok(result) => result,
+                Err(e) => {
+                    // On error, log error event
+                    if let Some(uid) = config.as_ref().and_then(|c| c.user_id.as_ref()) {
+                        if let Some(llm_error) = e.downcast_ref::<LlmError>() {
+                            events.push(self.create_error_event(llm_error, uid));
+                        }
+                    }
+                    return Err(e);
+                }
+            };
+
         // Log request event
         if let Some(uid) = config.as_ref().and_then(|c| c.user_id.as_ref()) {
             events.push(self.create_request_event(&openai_request.model, uid));
         }
-
-        // Execute API request
-        let start_time = Instant::now();
-        let url = format!("{}/v1/chat/completions", self.config.base_url);
-        let mut headers = reqwest::header::HeaderMap::new();
-        headers.insert(
-            reqwest::header::CONTENT_TYPE,
-            reqwest::header::HeaderValue::from_static("application/json"),
-        );
-
-        let api_response = match self
-            .http_client
-            .execute_chat_request(&url, &headers, &openai_request)
-            .await
-        {
-            Ok(response) => response,
-            Err(e) => {
-                if let Some(uid) = config.as_ref().and_then(|c| c.user_id.as_ref()) {
-                    events.push(self.create_error_event(&e, uid));
-                }
-                return Err(anyhow::anyhow!("LMStudio API error: {}", e));
-            }
-        };
-        let duration_ms = start_time.elapsed().as_millis() as u64;
 
         // Log response event
         if let Some(event) = self.create_response_event(&api_response, duration_ms, config.as_ref())
@@ -228,14 +270,22 @@ impl LlmProvider for LMStudioProvider {
             events.push(event);
         }
 
-        // Parse response
-        let response = self
-            .parse_lmstudio_response(api_response)
-            .map_err(|e| anyhow::anyhow!("Failed to parse response: {}", e))?;
-
         Ok((response, events))
     }
 
+    #[cfg(not(feature = "events"))]
+    async fn execute_llm(
+        &self,
+        request: UnifiedLLMRequest,
+        _current_tool_round: Option<ToolCallingRound>,
+        config: Option<RequestConfig>,
+    ) -> crate::core_types::Result<Response> {
+        let (response, _api_response, _duration_ms, _openai_request) =
+            self.execute_llm_internal(request, config).await?;
+        Ok(response)
+    }
+
+    #[cfg(feature = "events")]
     async fn execute_structured_llm(
         &self,
         mut request: UnifiedLLMRequest,
@@ -247,6 +297,21 @@ impl LlmProvider for LMStudioProvider {
         request.response_schema = Some(schema);
 
         // Execute with the schema-enabled request (returns tuple with events)
+        self.execute_llm(request, current_tool_round, config).await
+    }
+
+    #[cfg(not(feature = "events"))]
+    async fn execute_structured_llm(
+        &self,
+        mut request: UnifiedLLMRequest,
+        current_tool_round: Option<ToolCallingRound>,
+        schema: serde_json::Value,
+        config: Option<RequestConfig>,
+    ) -> crate::core_types::Result<Response> {
+        // Set the schema in the request
+        request.response_schema = Some(schema);
+
+        // Execute with the schema-enabled request
         self.execute_llm(request, current_tool_round, config).await
     }
 

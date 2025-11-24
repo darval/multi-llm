@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// Cache control for prompt caching
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CacheControl {
     #[serde(rename = "type")]
     pub cache_type: String, // "ephemeral"
@@ -13,7 +13,7 @@ pub struct CacheControl {
 }
 
 /// System message with optional cache control
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SystemMessage {
     #[serde(rename = "type")]
     pub message_type: String, // "text"
@@ -23,7 +23,7 @@ pub struct SystemMessage {
 }
 
 /// System field can be either a string (legacy) or array of system messages (with caching)
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum SystemField {
     String(String),
@@ -32,7 +32,7 @@ pub enum SystemField {
 
 /// Anthropic Messages API request structure
 /// Fields are ordered to match Anthropic's caching hierarchy: tools->system->messages->params
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub(super) struct AnthropicRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tools: Option<Vec<Value>>,
@@ -52,14 +52,14 @@ pub(super) struct AnthropicRequest {
 }
 
 /// Anthropic message structure
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub(super) struct AnthropicMessage {
     pub role: String,
     pub content: AnthropicContent,
 }
 
 /// Anthropic content structure (can be string or array of content blocks)
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub(super) enum AnthropicContent {
     Text(String),
@@ -67,7 +67,7 @@ pub(super) enum AnthropicContent {
 }
 
 /// Anthropic content block structure
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "type")]
 pub(super) enum AnthropicContentBlock {
     #[serde(rename = "text")]
@@ -90,7 +90,7 @@ pub(super) enum AnthropicContentBlock {
 }
 
 /// Anthropic API response structure
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub(super) struct AnthropicResponse {
     pub id: String,
     #[serde(rename = "type")]

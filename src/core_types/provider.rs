@@ -4,6 +4,7 @@
 //! request/response types, tool definitions, and configuration.
 
 use crate::core_types::errors::UserErrorCategory;
+#[cfg(feature = "events")]
 use crate::core_types::events::{BusinessEvent, EventScope};
 use crate::core_types::messages::{UnifiedLLMRequest, UnifiedMessage};
 use crate::core_types::Result;
@@ -130,6 +131,9 @@ pub struct Response {
 }
 
 /// Business event generated during LLM operations
+///
+/// Only available with the `events` feature enabled.
+#[cfg(feature = "events")]
 #[derive(Debug, Clone)]
 pub struct LLMBusinessEvent {
     /// The business event to log
@@ -151,12 +155,18 @@ pub struct ToolCallingRound {
 ///
 /// This trait defines the contract between multi-llm and LLM providers.
 /// Phase 2 should consider if this trait belongs in multi-llm rather than being extracted.
+///
+/// # Return Types
+/// - With `events` feature: Returns `(Response, Vec<LLMBusinessEvent>)`
+/// - Without `events` feature: Returns `Response`
 #[async_trait::async_trait]
 pub trait LlmProvider: Send + Sync {
     /// Execute LLM operation with unified context
     ///
-    /// Returns a tuple of (response, events) where events are business events
-    /// generated during the LLM operation.
+    /// # Returns
+    /// - With `events` feature: `Result<(Response, Vec<LLMBusinessEvent>)>`
+    /// - Without `events` feature: `Result<Response>`
+    #[cfg(feature = "events")]
     async fn execute_llm(
         &self,
         request: UnifiedLLMRequest,
@@ -164,9 +174,27 @@ pub trait LlmProvider: Send + Sync {
         config: Option<RequestConfig>,
     ) -> Result<(Response, Vec<LLMBusinessEvent>)>;
 
+    /// Execute LLM operation with unified context
+    ///
+    /// # Returns
+    /// - With `events` feature: `Result<(Response, Vec<LLMBusinessEvent>)>`
+    /// - Without `events` feature: `Result<Response>`
+    #[cfg(not(feature = "events"))]
+    async fn execute_llm(
+        &self,
+        request: UnifiedLLMRequest,
+        current_tool_round: Option<ToolCallingRound>,
+        config: Option<RequestConfig>,
+    ) -> Result<Response>;
+
     /// Execute structured LLM operation with unified context
     ///
     /// Returns Response with structured_response field populated.
+    ///
+    /// # Returns
+    /// - With `events` feature: `Result<(Response, Vec<LLMBusinessEvent>)>`
+    /// - Without `events` feature: `Result<Response>`
+    #[cfg(feature = "events")]
     async fn execute_structured_llm(
         &self,
         request: UnifiedLLMRequest,
@@ -174,6 +202,22 @@ pub trait LlmProvider: Send + Sync {
         schema: serde_json::Value,
         config: Option<RequestConfig>,
     ) -> Result<(Response, Vec<LLMBusinessEvent>)>;
+
+    /// Execute structured LLM operation with unified context
+    ///
+    /// Returns Response with structured_response field populated.
+    ///
+    /// # Returns
+    /// - With `events` feature: `Result<(Response, Vec<LLMBusinessEvent>)>`
+    /// - Without `events` feature: `Result<Response>`
+    #[cfg(not(feature = "events"))]
+    async fn execute_structured_llm(
+        &self,
+        request: UnifiedLLMRequest,
+        current_tool_round: Option<ToolCallingRound>,
+        schema: serde_json::Value,
+        config: Option<RequestConfig>,
+    ) -> Result<Response>;
 
     /// Get provider name for logging and debugging
     fn provider_name(&self) -> &'static str;

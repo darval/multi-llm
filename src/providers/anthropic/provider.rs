@@ -4,15 +4,19 @@ use super::caching;
 use super::conversion;
 use super::types::{AnthropicContentBlock, AnthropicRequest, AnthropicResponse, SystemField};
 use crate::config::{AnthropicConfig, DefaultLLMParams};
+#[cfg(feature = "events")]
 use crate::core_types::events::{BusinessEvent, EventScope};
 use crate::core_types::messages::UnifiedLLMRequest;
+#[cfg(feature = "events")]
+use crate::core_types::provider::LLMBusinessEvent;
 use crate::core_types::provider::{
-    LLMBusinessEvent, LlmProvider, RequestConfig, Response, ResponseFormat, ToolCallingRound,
+    LlmProvider, RequestConfig, Response, ResponseFormat, ToolCallingRound,
 };
 use crate::error::{LlmError, LlmResult};
 use crate::retry::RetryExecutor;
 use crate::{log_debug, log_error, log_warn};
 
+#[cfg(feature = "events")]
 use crate::core_types::event_types;
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
 use std::time::Instant;
@@ -543,7 +547,64 @@ impl AnthropicProvider {
         }
     }
 
+    /// Core LLM execution logic shared between events and non-events versions
+    ///
+    /// Returns (Response, raw AnthropicResponse, duration_ms, AnthropicRequest)
+    /// to allow event creation in events-enabled builds
+    async fn execute_llm_internal(
+        &self,
+        request: UnifiedLLMRequest,
+        config: Option<RequestConfig>,
+    ) -> crate::core_types::Result<(Response, AnthropicResponse, u64, AnthropicRequest)> {
+        // Determine caching and create base request
+        let enable_caching = self.should_enable_caching(config.as_ref());
+        let mut anthropic_request = self.create_base_request(&request, enable_caching);
+
+        // Apply executor config if provided
+        let response_format = if let Some(ref cfg) = config {
+            self.apply_executor_config(&mut anthropic_request, cfg.clone(), enable_caching)
+        } else {
+            None
+        };
+
+        // Apply response schema from request if present
+        self.apply_response_schema(&mut anthropic_request, request.response_schema);
+
+        // Debug log the full network request JSON
+        log_debug!(
+            provider = "anthropic",
+            request_json = %serde_json::to_string(&anthropic_request).unwrap_or_default(),
+            "Network request JSON"
+        );
+
+        // Clone request for event creation (all types are now Clone)
+        let anthropic_request_for_events = anthropic_request.clone();
+
+        // Send to Anthropic API
+        let start_time = Instant::now();
+        let api_response = self
+            .send_anthropic_request(anthropic_request)
+            .await
+            .map_err(|e| anyhow::anyhow!("Anthropic API error: {}", e))?;
+        let duration_ms = start_time.elapsed().as_millis() as u64;
+
+        // Convert Anthropic response to Response
+        let response = self.convert_anthropic_to_executor_response(
+            api_response.clone(),
+            response_format,
+            config,
+        )?;
+
+        Ok((
+            response,
+            api_response,
+            duration_ms,
+            anthropic_request_for_events,
+        ))
+    }
+
     /// Create LLM request business event
+    #[cfg(feature = "events")]
     fn create_request_event(
         &self,
         anthropic_request: &AnthropicRequest,
@@ -568,6 +629,7 @@ impl AnthropicProvider {
     }
 
     /// Create LLM error business event
+    #[cfg(feature = "events")]
     fn create_error_event(
         &self,
         error: &LlmError,
@@ -586,6 +648,7 @@ impl AnthropicProvider {
     }
 
     /// Create LLM response business event
+    #[cfg(feature = "events")]
     fn create_response_event(
         &self,
         api_response: &AnthropicResponse,
@@ -626,6 +689,7 @@ impl AnthropicProvider {
 
 #[async_trait::async_trait]
 impl LlmProvider for AnthropicProvider {
+    #[cfg(feature = "events")]
     async fn execute_llm(
         &self,
         request: UnifiedLLMRequest,
@@ -634,58 +698,49 @@ impl LlmProvider for AnthropicProvider {
     ) -> crate::core_types::Result<(Response, Vec<LLMBusinessEvent>)> {
         let mut events = Vec::new();
 
-        // Determine caching and create base request
-        let enable_caching = self.should_enable_caching(config.as_ref());
-        let mut anthropic_request = self.create_base_request(&request, enable_caching);
+        // Execute core logic and collect event data
+        let (response, api_response, duration_ms, anthropic_request) =
+            match self.execute_llm_internal(request, config.clone()).await {
+                Ok(result) => result,
+                Err(e) => {
+                    // On error, log error event
+                    if let Some(llm_error) = e.downcast_ref::<LlmError>() {
+                        if let Some(event) = self.create_error_event(llm_error, config.as_ref()) {
+                            events.push(event);
+                        }
+                    }
+                    return Err(e);
+                }
+            };
 
-        // Apply executor config if provided
-        let response_format = if let Some(ref cfg) = config {
-            self.apply_executor_config(&mut anthropic_request, cfg.clone(), enable_caching)
-        } else {
-            None
-        };
-
-        // Apply response schema from request if present
-        self.apply_response_schema(&mut anthropic_request, request.response_schema);
-
-        // Debug log the full network request JSON
-        log_debug!(
-            provider = "anthropic",
-            request_json = %serde_json::to_string(&anthropic_request).unwrap_or_default(),
-            "Network request JSON"
-        );
-
-        // Log LLM request event
+        // Log request event
         if let Some(event) = self.create_request_event(&anthropic_request, config.as_ref()) {
             events.push(event);
         }
 
-        // Send to Anthropic API
-        let start_time = Instant::now();
-        let api_response = match self.send_anthropic_request(anthropic_request).await {
-            Ok(response) => response,
-            Err(e) => {
-                if let Some(event) = self.create_error_event(&e, config.as_ref()) {
-                    events.push(event);
-                }
-                return Err(anyhow::anyhow!("Anthropic API error: {}", e));
-            }
-        };
-        let duration_ms = start_time.elapsed().as_millis() as u64;
-
-        // Log LLM response event
+        // Log response event
         if let Some(event) = self.create_response_event(&api_response, duration_ms, config.as_ref())
         {
             events.push(event);
         }
 
-        // Convert Anthropic response to Response
-        let response =
-            self.convert_anthropic_to_executor_response(api_response, response_format, config)?;
-
         Ok((response, events))
     }
 
+    #[cfg(not(feature = "events"))]
+    async fn execute_llm(
+        &self,
+        request: UnifiedLLMRequest,
+        _current_tool_round: Option<ToolCallingRound>,
+        config: Option<RequestConfig>,
+    ) -> crate::core_types::Result<Response> {
+        // Simple wrapper - just return the response
+        let (response, _api_response, _duration_ms, _anthropic_request) =
+            self.execute_llm_internal(request, config).await?;
+        Ok(response)
+    }
+
+    #[cfg(feature = "events")]
     async fn execute_structured_llm(
         &self,
         mut request: UnifiedLLMRequest,
@@ -697,6 +752,21 @@ impl LlmProvider for AnthropicProvider {
         request.response_schema = Some(schema);
 
         // Execute with the schema-enabled request (returns tuple with events)
+        self.execute_llm(request, current_tool_round, config).await
+    }
+
+    #[cfg(not(feature = "events"))]
+    async fn execute_structured_llm(
+        &self,
+        mut request: UnifiedLLMRequest,
+        current_tool_round: Option<ToolCallingRound>,
+        schema: serde_json::Value,
+        config: Option<RequestConfig>,
+    ) -> crate::core_types::Result<Response> {
+        // Set the schema in the request
+        request.response_schema = Some(schema);
+
+        // Execute with the schema-enabled request
         self.execute_llm(request, current_tool_round, config).await
     }
 

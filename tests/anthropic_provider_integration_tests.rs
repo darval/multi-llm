@@ -34,6 +34,7 @@ use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 // Import shared test helpers
+#[macro_use]
 mod common;
 
 fn create_test_config(base_url: String) -> AnthropicConfig {
@@ -173,7 +174,7 @@ async fn test_execute_request_success() {
     let result = provider.execute_llm(request, None, None).await;
 
     assert!(result.is_ok(), "Request should succeed");
-    let (response, _events) = result.unwrap();
+    let response = unwrap_response!(result.unwrap());
     assert!(response.usage.is_some(), "Should have usage data");
     assert!(
         response.usage.unwrap().total_tokens > 0,

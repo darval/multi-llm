@@ -19,6 +19,9 @@
 //!   - Network failures
 //!   - Message conversion and tool handling
 
+#[macro_use]
+mod common;
+
 use chrono::Utc;
 use multi_llm::config::{DefaultLLMParams, OpenAIConfig};
 use multi_llm::core_types::messages::{
@@ -154,7 +157,7 @@ async fn test_execute_request_success() {
     let result = provider.execute_llm(request, None, None).await;
 
     assert!(result.is_ok(), "Request should succeed");
-    let (response, _events) = result.unwrap();
+    let response = unwrap_response!(result.unwrap());
     assert!(response.usage.is_some(), "Should have usage data");
 }
 

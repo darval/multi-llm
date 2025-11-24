@@ -1,14 +1,21 @@
 //! Business event types for LLM operations
 //!
 //! These events track LLM interactions for observability and debugging.
-//! Future versions will make these optional via feature flag or provide
-//! a trait interface for custom implementations.
+//!
+//! This module is only available when the `events` feature is enabled.
+//! Enable with: `cargo add multi-llm --features events`
 
+#[cfg(feature = "events")]
 use chrono::{DateTime, Utc};
+#[cfg(feature = "events")]
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "events")]
 use uuid::Uuid;
 
 /// Business event for analytics and observability
+///
+/// Only available with the `events` feature enabled.
+#[cfg(feature = "events")]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct BusinessEvent {
     /// Unique identifier for this event
@@ -21,6 +28,7 @@ pub struct BusinessEvent {
     pub created_at: DateTime<Utc>,
 }
 
+#[cfg(feature = "events")]
 impl BusinessEvent {
     /// Create a new business event with the given type
     pub fn new(event_type: impl Into<String>) -> Self {
@@ -53,6 +61,9 @@ impl BusinessEvent {
 }
 
 /// Event scope - determines which storage backend to use
+///
+/// Only available with the `events` feature enabled.
+#[cfg(feature = "events")]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum EventScope {
     /// User-scoped event (written to user storage)
@@ -62,6 +73,9 @@ pub enum EventScope {
 }
 
 /// Pre-defined event types for consistency
+///
+/// Only available with the `events` feature enabled.
+#[cfg(feature = "events")]
 pub mod event_types {
     /// LLM request initiated
     pub const LLM_REQUEST: &str = "llm_request";

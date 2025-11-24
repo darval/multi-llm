@@ -9,20 +9,24 @@
 //! - `events` - Business event logging types
 
 pub mod errors;
+#[cfg(feature = "events")]
 pub mod events;
 pub mod messages;
 pub mod provider;
 
 // Re-export commonly used types
 pub use errors::{ErrorCategory, ErrorSeverity, UserErrorCategory};
+#[cfg(feature = "events")]
 pub use events::{event_types, BusinessEvent, EventScope};
 pub use messages::{
     MessageAttributes, MessageCategory, MessageContent, MessageRole, UnifiedLLMRequest,
     UnifiedMessage,
 };
+#[cfg(feature = "events")]
+pub use provider::LLMBusinessEvent;
 pub use provider::{
-    LLMBusinessEvent, LlmProvider, RequestConfig, Response, ResponseFormat, TokenUsage, Tool,
-    ToolCall, ToolCallingRound, ToolChoice, ToolResult,
+    LlmProvider, RequestConfig, Response, ResponseFormat, TokenUsage, Tool, ToolCall,
+    ToolCallingRound, ToolChoice, ToolResult,
 };
 
 /// Result type alias for core operations

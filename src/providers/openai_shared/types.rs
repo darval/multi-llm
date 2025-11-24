@@ -54,7 +54,7 @@ pub struct OpenAIRequest {
 }
 
 /// OpenAI-compatible chat completion response
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct OpenAIResponse {
     pub choices: Vec<OpenAIChoice>,
     #[serde(default)]
@@ -62,7 +62,7 @@ pub struct OpenAIResponse {
 }
 
 /// Choice in OpenAI response
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct OpenAIChoice {
     pub message: OpenAIResponseMessage,
     #[allow(dead_code)]
@@ -70,7 +70,7 @@ pub struct OpenAIChoice {
 }
 
 /// Message in OpenAI response choice
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct OpenAIResponseMessage {
     #[allow(dead_code)]
     pub role: String,
@@ -81,7 +81,7 @@ pub struct OpenAIResponseMessage {
 }
 
 /// Tool call in OpenAI response
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct OpenAIToolCall {
     pub id: String,
     #[serde(rename = "type")]
@@ -90,7 +90,7 @@ pub struct OpenAIToolCall {
 }
 
 /// Function details in OpenAI tool call
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct OpenAIToolFunction {
     pub name: String,
     pub arguments: String, // JSON string

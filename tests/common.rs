@@ -8,6 +8,24 @@
 // Allow dead code in test utilities - functions are used across different test files
 #![allow(dead_code)]
 
+// Macro to handle return types with/without events feature
+#[cfg(feature = "events")]
+#[macro_export]
+macro_rules! unwrap_response {
+    ($result:expr) => {{
+        let (resp, _events) = $result;
+        resp
+    }};
+}
+
+#[cfg(not(feature = "events"))]
+#[macro_export]
+macro_rules! unwrap_response {
+    ($result:expr) => {
+        $result
+    };
+}
+
 use chrono::Utc;
 use multi_llm::config::{
     AnthropicConfig, DefaultLLMParams, LLMConfig, LMStudioConfig, OllamaConfig, OpenAIConfig,

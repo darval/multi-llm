@@ -31,6 +31,7 @@
 //! We test CONCRETE providers with MOCK HTTP servers (not trait mocking).
 //! This gives us real code coverage and realistic testing.
 
+#[macro_use]
 mod common;
 use common::*;
 use multi_llm::core_types::provider::LlmProvider;
@@ -191,22 +192,22 @@ mod basic_execution_tests {
         let request = create_test_unified_request();
 
         // Get responses
-        let (anthropic_resp, _) = anthropic
+        let anthropic_resp = unwrap_response!(anthropic
             .execute_llm(request.clone(), None, None)
             .await
-            .unwrap();
-        let (openai_resp, _) = openai
+            .unwrap());
+        let openai_resp = unwrap_response!(openai
             .execute_llm(request.clone(), None, None)
             .await
-            .unwrap();
-        let (lmstudio_resp, _) = lmstudio
+            .unwrap());
+        let lmstudio_resp = unwrap_response!(lmstudio
             .execute_llm(request.clone(), None, None)
             .await
-            .unwrap();
-        let (ollama_resp, _) = ollama
+            .unwrap());
+        let ollama_resp = unwrap_response!(ollama
             .execute_llm(request.clone(), None, None)
             .await
-            .unwrap();
+            .unwrap());
 
         // All should have non-empty content
         assert!(
@@ -248,22 +249,22 @@ mod basic_execution_tests {
         let request = create_test_unified_request();
 
         // Get responses
-        let (anthropic_resp, _) = anthropic
+        let anthropic_resp = unwrap_response!(anthropic
             .execute_llm(request.clone(), None, None)
             .await
-            .unwrap();
-        let (openai_resp, _) = openai
+            .unwrap());
+        let openai_resp = unwrap_response!(openai
             .execute_llm(request.clone(), None, None)
             .await
-            .unwrap();
-        let (lmstudio_resp, _) = lmstudio
+            .unwrap());
+        let lmstudio_resp = unwrap_response!(lmstudio
             .execute_llm(request.clone(), None, None)
             .await
-            .unwrap();
-        let (ollama_resp, _) = ollama
+            .unwrap());
+        let ollama_resp = unwrap_response!(ollama
             .execute_llm(request.clone(), None, None)
             .await
-            .unwrap();
+            .unwrap());
 
         // All should have usage statistics
         assert!(
@@ -393,7 +394,7 @@ mod error_handling_tests {
 // Business Event Tests
 // ============================================================================
 
-#[cfg(test)]
+#[cfg(all(test, feature = "events"))]
 mod business_event_tests {
     use super::*;
 
@@ -810,10 +811,10 @@ mod configuration_completeness_tests {
         assert!(ollama_result.is_ok(), "Ollama should handle tools config");
 
         // All should return tool calls
-        let (anthropic_resp, _) = anthropic_result.unwrap();
-        let (openai_resp, _) = openai_result.unwrap();
-        let (lmstudio_resp, _) = lmstudio_result.unwrap();
-        let (ollama_resp, _) = ollama_result.unwrap();
+        let anthropic_resp = unwrap_response!(anthropic_result.unwrap());
+        let openai_resp = unwrap_response!(openai_result.unwrap());
+        let lmstudio_resp = unwrap_response!(lmstudio_result.unwrap());
+        let ollama_resp = unwrap_response!(ollama_result.unwrap());
 
         assert!(
             !anthropic_resp.tool_calls.is_empty(),

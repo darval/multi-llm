@@ -66,14 +66,9 @@ pub use tokens::{AnthropicTokenCounter, OpenAITokenCounter, TokenCounter, TokenC
 
 // Re-export core types (unified messages and provider types)
 pub use core_types::{
-    event_types,
-    // Events
-    BusinessEvent,
     // Errors
     ErrorCategory,
     ErrorSeverity,
-    EventScope,
-    LLMBusinessEvent,
     // Provider types (renamed from Executor*)
     LlmProvider,
     // Messages - the core unified message architecture
@@ -94,6 +89,10 @@ pub use core_types::{
     UnifiedMessage,
     UserErrorCategory,
 };
+
+// Event types - only available with "events" feature
+#[cfg(feature = "events")]
+pub use core_types::{event_types, BusinessEvent, EventScope, LLMBusinessEvent};
 
 // Re-export LLM-specific types
 pub use types::{LLMMetadata, LLMRequest, LLMToolCall, LLMUsage};
