@@ -25,7 +25,7 @@ use super::super::conversion::transform_unified_messages;
 use super::super::types::{AnthropicContent, AnthropicContentBlock};
 use crate::config::AnthropicConfig;
 use crate::core_types::messages::{
-    MessageAttributes, MessageCategory, MessageContent, MessageRole, UnifiedMessage,
+    CacheType, MessageAttributes, MessageCategory, MessageContent, MessageRole, UnifiedMessage,
 };
 use crate::retry::RetryPolicy;
 use chrono::Utc;
@@ -54,6 +54,27 @@ fn create_message(role: MessageRole, content: &str, cacheable: bool) -> UnifiedM
         attributes: MessageAttributes {
             priority: 0,
             cacheable,
+            cache_type: None,
+            cache_key: None,
+            category: MessageCategory::Current,
+            metadata: HashMap::new(),
+        },
+        timestamp: Utc::now(),
+    }
+}
+
+fn create_message_with_cache_type(
+    role: MessageRole,
+    content: &str,
+    cache_type: CacheType,
+) -> UnifiedMessage {
+    UnifiedMessage {
+        role,
+        content: MessageContent::Text(content.to_string()),
+        attributes: MessageAttributes {
+            priority: 0,
+            cacheable: true,
+            cache_type: Some(cache_type),
             cache_key: None,
             category: MessageCategory::Current,
             metadata: HashMap::new(),
@@ -73,6 +94,7 @@ fn create_tool_call_message(id: &str, name: &str) -> UnifiedMessage {
         attributes: MessageAttributes {
             priority: 0,
             cacheable: false,
+            cache_type: None,
             cache_key: None,
             category: MessageCategory::Current,
             metadata: HashMap::new(),
@@ -92,6 +114,7 @@ fn create_tool_result_message(tool_call_id: &str, content: &str, is_error: bool)
         attributes: MessageAttributes {
             priority: 0,
             cacheable: false,
+            cache_type: None,
             cache_key: None,
             category: MessageCategory::Current,
             metadata: HashMap::new(),
@@ -573,6 +596,7 @@ fn test_non_cacheable_system_messages_not_cached() {
 // Helper trait for checking cache control
 trait HasCacheControl {
     fn has_cache_control(&self) -> bool;
+    fn get_cache_ttl(&self) -> Option<String>;
 }
 
 impl HasCacheControl for AnthropicContentBlock {
@@ -580,6 +604,15 @@ impl HasCacheControl for AnthropicContentBlock {
         match self {
             AnthropicContentBlock::Text { cache_control, .. } => cache_control.is_some(),
             _ => false,
+        }
+    }
+
+    fn get_cache_ttl(&self) -> Option<String> {
+        match self {
+            AnthropicContentBlock::Text { cache_control, .. } => {
+                cache_control.as_ref().and_then(|cc| cc.ttl.clone())
+            }
+            _ => None,
         }
     }
 }
@@ -700,6 +733,7 @@ fn test_extract_text_content_from_tool_result_success() {
         attributes: MessageAttributes {
             priority: 0,
             cacheable: false,
+            cache_type: None,
             cache_key: None,
             category: MessageCategory::Current,
             metadata: HashMap::new(),
@@ -734,6 +768,7 @@ fn test_extract_text_content_from_tool_result_error() {
         attributes: MessageAttributes {
             priority: 0,
             cacheable: false,
+            cache_type: None,
             cache_key: None,
             category: MessageCategory::Current,
             metadata: HashMap::new(),
@@ -791,6 +826,7 @@ fn test_json_content_with_caching() {
         attributes: MessageAttributes {
             priority: 0,
             cacheable: true,
+            cache_type: None,
             cache_key: None,
             category: MessageCategory::Current,
             metadata: HashMap::new(),
@@ -814,6 +850,259 @@ fn test_json_content_with_caching() {
     }
 }
 
+// ============================================================================
+// Extended Cache Type Tests (Issue #3)
+// ============================================================================
+
+#[test]
+fn test_extended_cache_type_conversation_message() {
+    // Test verifies Extended cache type produces correct TTL (1h)
+    // Extended cache is used for longer-lived context (e.g., system prompts)
+
+    let config = create_test_config();
+    let msg = create_message_with_cache_type(MessageRole::User, "Context", CacheType::Extended);
+
+    let messages = vec![&msg];
+    let (_, conversation) = transform_unified_messages(&messages, &config, true);
+
+    assert_eq!(conversation.len(), 1);
+    match &conversation[0].content {
+        AnthropicContent::Blocks(blocks) => {
+            assert!(
+                blocks[0].has_cache_control(),
+                "Extended cache message should have cache control"
+            );
+            assert_eq!(
+                blocks[0].get_cache_ttl(),
+                Some("1h".to_string()),
+                "Extended cache should use 1h TTL"
+            );
+        }
+        _ => panic!("Expected Blocks content with cache control"),
+    }
+}
+
+#[test]
+fn test_ephemeral_cache_type_conversation_message() {
+    // Test verifies Ephemeral cache type produces correct TTL (5m)
+    // Ephemeral cache is used for short-lived context
+
+    let config = create_test_config();
+    let msg = create_message_with_cache_type(MessageRole::User, "Query", CacheType::Ephemeral);
+
+    let messages = vec![&msg];
+    let (_, conversation) = transform_unified_messages(&messages, &config, true);
+
+    assert_eq!(conversation.len(), 1);
+    match &conversation[0].content {
+        AnthropicContent::Blocks(blocks) => {
+            assert!(
+                blocks[0].has_cache_control(),
+                "Ephemeral cache message should have cache control"
+            );
+            assert_eq!(
+                blocks[0].get_cache_ttl(),
+                Some("5m".to_string()),
+                "Ephemeral cache should use 5m TTL"
+            );
+        }
+        _ => panic!("Expected Blocks content with cache control"),
+    }
+}
+
+#[test]
+fn test_extended_cache_type_system_message() {
+    // Test verifies Extended cache works for system messages
+    // System messages can specify their own cache type
+
+    let config = create_test_config();
+    let sys =
+        create_message_with_cache_type(MessageRole::System, "Long context", CacheType::Extended);
+
+    let messages = vec![&sys];
+    let (system, _) = transform_unified_messages(&messages, &config, true);
+
+    assert_eq!(system.len(), 1);
+    assert!(
+        system[0].cache_control.is_some(),
+        "Extended cache system message should have cache control"
+    );
+    let cache_control = system[0].cache_control.as_ref().unwrap();
+    assert_eq!(cache_control.cache_type, "ephemeral");
+    assert_eq!(
+        cache_control.ttl,
+        Some("1h".to_string()),
+        "Extended cache system message should use 1h TTL"
+    );
+}
+
+#[test]
+fn test_ephemeral_cache_type_system_message() {
+    // Test verifies Ephemeral cache works for system messages
+    // System messages can specify their own cache type
+
+    let config = create_test_config();
+    let sys =
+        create_message_with_cache_type(MessageRole::System, "Short context", CacheType::Ephemeral);
+
+    let messages = vec![&sys];
+    let (system, _) = transform_unified_messages(&messages, &config, true);
+
+    assert_eq!(system.len(), 1);
+    assert!(
+        system[0].cache_control.is_some(),
+        "Ephemeral cache system message should have cache control"
+    );
+    let cache_control = system[0].cache_control.as_ref().unwrap();
+    assert_eq!(cache_control.cache_type, "ephemeral");
+    assert_eq!(
+        cache_control.ttl,
+        Some("5m".to_string()),
+        "Ephemeral cache system message should use 5m TTL"
+    );
+}
+
+#[test]
+fn test_mixed_cache_types_in_conversation() {
+    // Test verifies different cache types can coexist
+    // Some messages use Extended (1h), others use Ephemeral (5m)
+    // Use 3 messages so both index 0 and 2 are cache breakpoints
+
+    let config = create_test_config();
+    let msg1 = create_message_with_cache_type(MessageRole::User, "Extended", CacheType::Extended);
+    let msg2 =
+        create_message_with_cache_type(MessageRole::Assistant, "Middle", CacheType::Ephemeral);
+    let msg3 = create_message_with_cache_type(MessageRole::User, "Ephemeral", CacheType::Ephemeral);
+
+    let messages = vec![&msg1, &msg2, &msg3];
+    let (_, conversation) = transform_unified_messages(&messages, &config, true);
+
+    assert_eq!(conversation.len(), 3);
+
+    // Message at index 0 should have Extended cache (1h) - always a breakpoint
+    match &conversation[0].content {
+        AnthropicContent::Blocks(blocks) => {
+            assert_eq!(
+                blocks[0].get_cache_ttl(),
+                Some("1h".to_string()),
+                "First message should use Extended cache"
+            );
+        }
+        _ => panic!("Expected Blocks content"),
+    }
+
+    // Message at index 1 should NOT be cached (not a breakpoint in 3-5 message range)
+    match &conversation[1].content {
+        AnthropicContent::Text(_) => {
+            // Expected: no cache control for non-breakpoint message
+        }
+        AnthropicContent::Blocks(blocks) => {
+            assert!(
+                !blocks[0].has_cache_control(),
+                "Middle message should not be cached (not a breakpoint)"
+            );
+        }
+    }
+
+    // Message at index 2 should have Ephemeral cache (5m) - breakpoint in 3-5 message range
+    match &conversation[2].content {
+        AnthropicContent::Blocks(blocks) => {
+            assert_eq!(
+                blocks[0].get_cache_ttl(),
+                Some("5m".to_string()),
+                "Third message should use Ephemeral cache"
+            );
+        }
+        _ => panic!("Expected Blocks content"),
+    }
+}
+
+#[test]
+fn test_cache_type_overrides_config_ttl() {
+    // Test verifies message-level cache_type overrides config.cache_ttl
+    // IMPORTANT: Message-level control takes precedence
+
+    let mut config = create_test_config();
+    config.cache_ttl = "1h".to_string(); // Config says 1h
+
+    // But message specifies Ephemeral (5m)
+    let msg = create_message_with_cache_type(MessageRole::User, "Query", CacheType::Ephemeral);
+
+    let messages = vec![&msg];
+    let (_, conversation) = transform_unified_messages(&messages, &config, true);
+
+    match &conversation[0].content {
+        AnthropicContent::Blocks(blocks) => {
+            assert_eq!(
+                blocks[0].get_cache_ttl(),
+                Some("5m".to_string()),
+                "Message cache_type should override config.cache_ttl"
+            );
+        }
+        _ => panic!("Expected Blocks content"),
+    }
+}
+
+#[test]
+fn test_no_cache_type_uses_config_ttl() {
+    // Test verifies messages without cache_type fall back to config.cache_ttl
+    // Backward compatibility: existing code continues to work
+
+    let mut config = create_test_config();
+    config.cache_ttl = "30m".to_string();
+
+    let msg = create_message(MessageRole::User, "Query", true); // cacheable but no cache_type
+
+    let messages = vec![&msg];
+    let (_, conversation) = transform_unified_messages(&messages, &config, true);
+
+    match &conversation[0].content {
+        AnthropicContent::Blocks(blocks) => {
+            assert_eq!(
+                blocks[0].get_cache_ttl(),
+                Some("30m".to_string()),
+                "Should use config.cache_ttl when message has no cache_type"
+            );
+        }
+        _ => panic!("Expected Blocks content"),
+    }
+}
+
+#[test]
+fn test_extended_cache_with_json_content() {
+    // Test verifies Extended cache works with JSON content
+    // JSON content should respect cache_type
+
+    let config = create_test_config();
+    let json_msg = UnifiedMessage {
+        role: MessageRole::User,
+        content: MessageContent::Json(serde_json::json!({"data": "value"})),
+        attributes: MessageAttributes {
+            priority: 0,
+            cacheable: true,
+            cache_type: Some(CacheType::Extended),
+            cache_key: None,
+            category: MessageCategory::Current,
+            metadata: HashMap::new(),
+        },
+        timestamp: Utc::now(),
+    };
+
+    let messages = vec![&json_msg];
+    let (_, conversation) = transform_unified_messages(&messages, &config, true);
+
+    match &conversation[0].content {
+        AnthropicContent::Blocks(blocks) => {
+            assert_eq!(
+                blocks[0].get_cache_ttl(),
+                Some("1h".to_string()),
+                "JSON content should respect Extended cache type"
+            );
+        }
+        _ => panic!("Expected Blocks content"),
+    }
+}
+
 fn create_tool_call_with_role(role: MessageRole) -> UnifiedMessage {
     UnifiedMessage {
         role,
@@ -825,6 +1114,7 @@ fn create_tool_call_with_role(role: MessageRole) -> UnifiedMessage {
         attributes: MessageAttributes {
             priority: 0,
             cacheable: false,
+            cache_type: None,
             cache_key: None,
             category: MessageCategory::Current,
             metadata: HashMap::new(),

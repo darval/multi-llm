@@ -93,13 +93,50 @@ let anthropic_smart = AnthropicProvider::new(AnthropicConfig {
 
 ## Prompt Caching
 
-Reduce costs with Anthropic's prompt caching (both 5-minute and 1-hour):
+Reduce costs with Anthropic's prompt caching. Two cache types are available:
+
+- **Ephemeral** (5 minutes): Low-cost, automatic cache for repeated prompts
+- **Extended** (1 hour): Premium cache for longer-lived contexts (costs ~10% of full tokens)
 
 ```rust
-let msg = Message::user("Large context to cache")
-    .with_cache_control(CacheControl::extended())  // 1-hour cache
-    .build();
+use multi_llm::core_types::messages::{MessageAttributes, CacheType};
+
+// Ephemeral cache (5 minutes) - default
+let ephemeral_msg = UnifiedMessage {
+    role: MessageRole::System,
+    content: MessageContent::Text("Repeated context".to_string()),
+    attributes: MessageAttributes {
+        cacheable: true,
+        cache_type: Some(CacheType::Ephemeral),
+        ..Default::default()
+    },
+};
+
+// Extended cache (1 hour) - for long-lived contexts
+let extended_msg = UnifiedMessage {
+    role: MessageRole::System,
+    content: MessageContent::Text("Long-lived documentation context".to_string()),
+    attributes: MessageAttributes {
+        cacheable: true,
+        cache_type: Some(CacheType::Extended),
+        ..Default::default()
+    },
+};
+
+// First request creates cache
+let response1 = provider.execute(request, None).await?;
+
+// Subsequent requests within TTL hit cache (90% cost savings)
+let response2 = provider.execute(request, None).await?;
 ```
+
+**Cost implications:**
+- **Ephemeral writes (5min)**: 1.25x base cost (25% premium)
+- **Extended writes (1hr)**: 2x base cost (100% premium)
+- **Cache reads (both)**: 0.1x base cost (90% savings)
+- **Best for**: Large contexts reused multiple times within the TTL window
+
+*See [Anthropic's pricing docs](https://platform.claude.com/docs/en/build-with-claude/prompt-caching) for current rates.*
 
 ## Tool Calling
 

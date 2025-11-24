@@ -72,6 +72,7 @@ fn create_test_message(content: &str) -> UnifiedMessage {
         attributes: MessageAttributes {
             priority: 0,
             cacheable: false,
+            cache_type: None,
             cache_key: None,
             category: MessageCategory::Current,
             metadata: HashMap::new(),

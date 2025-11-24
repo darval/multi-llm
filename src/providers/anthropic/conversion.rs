@@ -4,8 +4,16 @@ use super::types::{
     AnthropicContent, AnthropicContentBlock, AnthropicMessage, CacheControl, SystemMessage,
 };
 use crate::config::AnthropicConfig;
-use crate::core_types::messages::{MessageContent, MessageRole, UnifiedMessage};
+use crate::core_types::messages::{CacheType, MessageContent, MessageRole, UnifiedMessage};
 use crate::log_debug;
+
+/// Get TTL string for a cache type (Anthropic uses "ephemeral" type with different TTLs)
+fn get_cache_ttl(cache_type: CacheType) -> &'static str {
+    match cache_type {
+        CacheType::Ephemeral => "5m",
+        CacheType::Extended => "1h",
+    }
+}
 
 /// Convert unified messages to Anthropic format, applying caching properly per Anthropic hierarchy
 pub(super) fn transform_unified_messages(
@@ -162,9 +170,17 @@ fn apply_system_cache_control(
     if let Some(last_cacheable_index) = system_msgs.iter().rposition(|msg| msg.attributes.cacheable)
     {
         if let Some(system_msg) = system_messages.get_mut(last_cacheable_index) {
+            // Use message's cache_type if specified, otherwise fall back to config
+            let ttl = system_msgs[last_cacheable_index]
+                .attributes
+                .cache_type
+                .map(get_cache_ttl)
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| config.cache_ttl.clone());
+
             system_msg.cache_control = Some(CacheControl {
                 cache_type: "ephemeral".to_string(),
-                ttl: Some(config.cache_ttl.clone()),
+                ttl: Some(ttl),
             });
         }
     }
@@ -177,7 +193,7 @@ fn unified_message_to_anthropic_with_cache_control(
     should_cache: bool,
 ) -> AnthropicMessage {
     let role = convert_message_role(&msg.role);
-    let content = convert_message_content(&msg.content, &role, config, should_cache);
+    let content = convert_message_content(&msg.content, &role, msg, config, should_cache);
     AnthropicMessage { role, content }
 }
 
@@ -195,12 +211,13 @@ fn convert_message_role(role: &MessageRole) -> String {
 fn convert_message_content(
     content: &MessageContent,
     role: &str,
+    msg: &UnifiedMessage,
     config: &AnthropicConfig,
     should_cache: bool,
 ) -> AnthropicContent {
     match content {
-        MessageContent::Text(text) => convert_text_content(text, role, config, should_cache),
-        MessageContent::Json(value) => convert_json_content(value, config, should_cache),
+        MessageContent::Text(text) => convert_text_content(text, role, msg, config, should_cache),
+        MessageContent::Json(value) => convert_json_content(value, msg, config, should_cache),
         MessageContent::ToolCall {
             id,
             name,
@@ -218,11 +235,20 @@ fn convert_message_content(
 fn convert_text_content(
     text: &str,
     role: &str,
+    msg: &UnifiedMessage,
     config: &AnthropicConfig,
     should_cache: bool,
 ) -> AnthropicContent {
     // NEVER apply cache_control to empty text blocks (Anthropic API rejects this)
     if should_cache && !text.is_empty() {
+        // Use message's cache_type if specified, otherwise fall back to config
+        let ttl = msg
+            .attributes
+            .cache_type
+            .map(get_cache_ttl)
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| config.cache_ttl.clone());
+
         log_debug!(
             provider = "anthropic",
             role = %role,
@@ -233,7 +259,7 @@ fn convert_text_content(
             text: text.to_string(),
             cache_control: Some(CacheControl {
                 cache_type: "ephemeral".to_string(),
-                ttl: Some(config.cache_ttl.clone()),
+                ttl: Some(ttl),
             }),
         }])
     } else {
@@ -250,17 +276,26 @@ fn convert_text_content(
 /// Convert JSON content with optional caching
 fn convert_json_content(
     value: &serde_json::Value,
+    msg: &UnifiedMessage,
     config: &AnthropicConfig,
     should_cache: bool,
 ) -> AnthropicContent {
     let json_text = serde_json::to_string_pretty(value).unwrap_or_default();
     // NEVER apply cache_control to empty text blocks (Anthropic API rejects this)
     if should_cache && !json_text.is_empty() {
+        // Use message's cache_type if specified, otherwise fall back to config
+        let ttl = msg
+            .attributes
+            .cache_type
+            .map(get_cache_ttl)
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| config.cache_ttl.clone());
+
         AnthropicContent::Blocks(vec![AnthropicContentBlock::Text {
             text: json_text,
             cache_control: Some(CacheControl {
                 cache_type: "ephemeral".to_string(),
-                ttl: Some(config.cache_ttl.clone()),
+                ttl: Some(ttl),
             }),
         }])
     } else {

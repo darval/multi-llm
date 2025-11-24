@@ -97,6 +97,61 @@ pub enum MessageCategory {
     ToolResult,
 }
 
+/// Cache type for prompt caching (Anthropic-specific feature)
+///
+/// Controls the time-to-live (TTL) for cached prompt content. Both types offer
+/// 90% savings on cache reads, but differ in write costs and duration.
+///
+/// # Pricing Model
+/// - **Ephemeral writes**: 1.25x base input token cost (25% premium)
+/// - **Extended writes**: 2x base input token cost (100% premium)
+/// - **Cache reads (both)**: 0.1x base input token cost (90% savings)
+///
+/// # When to Use
+/// - **Ephemeral**: Quick iterations, development sessions (< 5 minutes)
+/// - **Extended**: Long documentation, repeated workflows (< 1 hour)
+///
+/// # Example
+/// ```rust
+/// use multi_llm::core_types::messages::{MessageAttributes, CacheType};
+///
+/// // Ephemeral: lower write cost, shorter TTL
+/// let ephemeral = MessageAttributes {
+///     cacheable: true,
+///     cache_type: Some(CacheType::Ephemeral),
+///     ..Default::default()
+/// };
+///
+/// // Extended: higher write cost, longer TTL
+/// let extended = MessageAttributes {
+///     cacheable: true,
+///     cache_type: Some(CacheType::Extended),
+///     ..Default::default()
+/// };
+/// ```
+///
+/// # Break-Even Analysis
+/// For 1000 tokens cached and reused N times:
+/// - **Ephemeral**: Profitable after 1-2 reads (breaks even quickly)
+/// - **Extended**: Profitable after 5-6 reads (higher initial cost)
+///
+/// See: <https://platform.claude.com/docs/en/build-with-claude/prompt-caching>
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+pub enum CacheType {
+    /// Ephemeral cache (5-minute TTL, 1.25x write cost)
+    ///
+    /// Best for development, quick iterations, and short sessions where you'll
+    /// reuse the same context multiple times within 5 minutes.
+    #[default]
+    Ephemeral,
+
+    /// Extended cache (1-hour TTL, 2x write cost)
+    ///
+    /// Best for long documentation contexts, extended workflows, or situations
+    /// where you need the cache to persist across longer time periods (up to 1 hour).
+    Extended,
+}
+
 /// Message attributes that guide provider behavior
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MessageAttributes {
@@ -104,6 +159,8 @@ pub struct MessageAttributes {
     pub priority: u8,
     /// Whether this message content is static and cacheable
     pub cacheable: bool,
+    /// Cache type for prompt caching (ephemeral or extended)
+    pub cache_type: Option<CacheType>,
     /// Optional cache key for deduplication
     pub cache_key: Option<String>,
     /// Message category for provider-specific handling
@@ -117,6 +174,7 @@ impl Default for MessageAttributes {
         Self {
             priority: 50,
             cacheable: false,
+            cache_type: None,
             cache_key: None,
             category: MessageCategory::Current,
             metadata: HashMap::new(),
@@ -170,6 +228,7 @@ impl UnifiedMessage {
             MessageAttributes {
                 priority: 0,
                 cacheable: true,
+                cache_type: None,
                 cache_key,
                 category: MessageCategory::SystemInstruction,
                 metadata: HashMap::new(),
@@ -185,6 +244,7 @@ impl UnifiedMessage {
             MessageAttributes {
                 priority: 1,
                 cacheable: true,
+                cache_type: None,
                 cache_key,
                 category: MessageCategory::ToolDefinition,
                 metadata: HashMap::new(),
@@ -200,6 +260,7 @@ impl UnifiedMessage {
             MessageAttributes {
                 priority: 5,
                 cacheable: true,
+                cache_type: None,
                 cache_key,
                 category: MessageCategory::Context,
                 metadata: HashMap::new(),
@@ -215,6 +276,7 @@ impl UnifiedMessage {
             MessageAttributes {
                 priority: 20,
                 cacheable: true,
+                cache_type: None,
                 cache_key: None,
                 category: MessageCategory::History,
                 metadata: HashMap::new(),
@@ -230,6 +292,7 @@ impl UnifiedMessage {
             MessageAttributes {
                 priority: 30,
                 cacheable: false,
+                cache_type: None,
                 cache_key: None,
                 category: MessageCategory::Current,
                 metadata: HashMap::new(),
@@ -249,6 +312,7 @@ impl UnifiedMessage {
             MessageAttributes {
                 priority: 25,
                 cacheable: false,
+                cache_type: None,
                 cache_key: None,
                 category: MessageCategory::ToolResult,
                 metadata: HashMap::new(),
@@ -268,6 +332,7 @@ impl UnifiedMessage {
             MessageAttributes {
                 priority: 26,
                 cacheable: false,
+                cache_type: None,
                 cache_key: None,
                 category: MessageCategory::ToolResult,
                 metadata: HashMap::new(),
@@ -295,6 +360,22 @@ impl UnifiedMessage {
     /// Create a simple system message
     pub fn system(content: impl Into<String>) -> Self {
         Self::simple(MessageRole::System, content)
+    }
+
+    // Cache control methods
+
+    /// Mark this message for ephemeral caching (5-minute TTL)
+    pub fn with_ephemeral_cache(mut self) -> Self {
+        self.attributes.cacheable = true;
+        self.attributes.cache_type = Some(CacheType::Ephemeral);
+        self
+    }
+
+    /// Mark this message for extended caching (1-hour TTL)
+    pub fn with_extended_cache(mut self) -> Self {
+        self.attributes.cacheable = true;
+        self.attributes.cache_type = Some(CacheType::Extended);
+        self
     }
 }
 

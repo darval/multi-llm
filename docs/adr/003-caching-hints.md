@@ -10,10 +10,11 @@
 Anthropic Claude supports prompt caching to reduce costs and latency when reusing large prompt contexts. This feature allows portions of prompts to be cached and reused across requests, significantly reducing token usage for repeated content.
 
 **Anthropic's caching system**:
-- **Ephemeral cache**: 5-minute TTL, lower cost savings
-- **Extended cache**: 1-hour TTL, higher cost savings (used in production by myStory)
+- **Ephemeral cache**: 5-minute TTL, 1.25x write cost (25% premium), 0.1x read cost (90% savings)
+- **Extended cache**: 1-hour TTL, 2x write cost (100% premium), 0.1x read cost (90% savings)
 - Cache control blocks attached to specific messages
-- Providers pay cache write costs, save on cache read costs
+- Both cache types offer 90% savings on reads; extended cache has higher upfront cost but longer TTL
+- Used in production by myStory with extended cache for long-lived contexts
 
 **Observability requirement**: Caching is a cost optimization feature that requires monitoring to tune effectively. The events system (see [ADR-005](./005-events-system.md)) captures cache statistics (cache hits, cache writes, tokens saved) to enable:
 - **Cost analysis**: Understanding actual savings from caching
@@ -242,6 +243,14 @@ fn convert_to_openai_message(msg: &Message) -> OpenAIMessage {
 - Explain cost implications (cache write vs read costs)
 - Note that unsupported providers silently ignore
 - Document events integration for cache monitoring
+
+**Pricing details** (as of 2025):
+- **Ephemeral writes**: 1.25x base input token cost
+- **Extended writes**: 2x base input token cost
+- **Cache reads (both)**: 0.1x base input token cost
+- Example (Claude Sonnet 4.5): Base=$3/M, Ephemeral write=$3.75/M, Extended write=$6/M, Cache read=$0.30/M
+- Break-even: Ephemeral profitable after 1-2 reads, Extended profitable after 5-6 reads
+- Source: https://platform.claude.com/docs/en/build-with-claude/prompt-caching
 
 ## Future Considerations
 

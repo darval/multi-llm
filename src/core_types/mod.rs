@@ -14,6 +14,10 @@ pub mod events;
 pub mod messages;
 pub mod provider;
 
+// Test modules
+#[cfg(test)]
+mod tests;
+
 // Re-export commonly used types
 pub use errors::{ErrorCategory, ErrorSeverity, UserErrorCategory};
 #[cfg(feature = "events")]
