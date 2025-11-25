@@ -9,7 +9,7 @@
 use super::types::*;
 use crate::error::{LlmError, LlmResult};
 use crate::internals::retry::{RetryExecutor, RetryPolicy};
-use crate::logging::log_error;
+use crate::logging::{log_debug, log_error, log_warn};
 use crate::provider::{RequestConfig, Tool, ToolCall, ToolChoice};
 use crate::{MessageContent, MessageRole, UnifiedMessage};
 use regex::Regex;
@@ -111,7 +111,7 @@ impl CustomFormatParser {
             return Ok(None);
         };
 
-        tracing::debug!(
+        log_debug!(
             format_name = format_name,
             capture_count = captures.len(),
             "FOUND MATCH for custom tool format"
@@ -133,7 +133,7 @@ impl CustomFormatParser {
 
     /// Log when no pattern matches
     fn log_no_match(content: &str, pattern_count: usize) {
-        tracing::warn!(
+        log_warn!(
             content_preview = content.chars().take(300).collect::<String>(),
             full_content = content,
             pattern_count = pattern_count,
@@ -218,7 +218,7 @@ impl CustomFormatParser {
         let full_match = captures.get(0).unwrap().as_str();
         let cleaned_content = content.replace(full_match, "").trim().to_string();
 
-        tracing::debug!(
+        log_debug!(
             format = format_name,
             function = &function_name,
             json_length = json_content.len(),
@@ -266,7 +266,7 @@ impl CustomFormatParser {
             let full_match = captures.get(0).unwrap().as_str();
             let cleaned_content = content.replace(full_match, "").trim().to_string();
 
-            tracing::debug!(
+            log_debug!(
                 format = format_name,
                 function = &function_name,
                 json_length = json_str.len(),
@@ -315,7 +315,7 @@ impl CustomFormatParser {
         let full_match = captures.get(0).unwrap().as_str();
         let cleaned_content = content.replace(full_match, "").trim().to_string();
 
-        tracing::debug!(
+        log_debug!(
             format = format_name,
             function = &function_name,
             "Successfully parsed 'Tool call:' format"
@@ -356,7 +356,7 @@ impl CustomFormatParser {
             })?
             .clone();
 
-        tracing::debug!(
+        log_debug!(
             format = format_name,
             function = &function_name,
             "Successfully parsed JSON-only tool call format"
@@ -450,7 +450,7 @@ impl CustomFormatParser {
             repaired.push('}');
         }
 
-        tracing::debug!(
+        log_debug!(
             original_length = text.len(),
             repaired_length = repaired.len(),
             added_braces = missing_count,
@@ -912,7 +912,7 @@ fn handle_parsing_error(
     content: &str,
     error: &CustomFormatError,
 ) -> Option<ToolCallProcessingResult> {
-    tracing::warn!(
+    log_warn!(
         error = ?error,
         content_preview = content.chars().take(100).collect::<String>(),
         "Failed to parse custom tool format - attempting content cleaning"
@@ -923,7 +923,7 @@ fn handle_parsing_error(
         return None;
     }
 
-    tracing::debug!(
+    log_debug!(
         original_length = content.len(),
         cleaned_length = cleaned_content.len(),
         "Cleaned tool call patterns from failed parse"
