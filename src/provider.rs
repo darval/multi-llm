@@ -1,7 +1,65 @@
-//! Provider trait and types for LLM abstraction
+//! Provider trait and types for LLM abstraction.
 //!
-//! Defines the `LlmProvider` trait that all providers implement, along with
-//! request/response types, tool definitions, and configuration.
+//! This module defines the [`LlmProvider`] trait that all LLM providers implement,
+//! along with request/response types, tool definitions, and configuration.
+//!
+//! # Overview
+//!
+//! The provider abstraction allows you to:
+//! - Switch between LLM providers without changing your application code
+//! - Use a consistent interface for all LLM operations
+//! - Access provider-specific features (like caching) through unified APIs
+//!
+//! # Provider Trait
+//!
+//! All providers implement [`LlmProvider`], which provides:
+//! - [`execute_llm()`](LlmProvider::execute_llm): Execute a standard LLM request
+//! - [`execute_structured_llm()`](LlmProvider::execute_structured_llm): Execute with JSON schema output
+//! - [`provider_name()`](LlmProvider::provider_name): Get the provider identifier
+//!
+//! # Tool Calling
+//!
+//! Define tools with [`Tool`] and handle the calling flow:
+//!
+//! ```rust
+//! use multi_llm::{Tool, ToolChoice, ToolCall, ToolResult};
+//!
+//! // Define a tool
+//! let weather_tool = Tool {
+//!     name: "get_weather".to_string(),
+//!     description: "Get current weather for a city".to_string(),
+//!     parameters: serde_json::json!({
+//!         "type": "object",
+//!         "properties": {
+//!             "city": {"type": "string", "description": "City name"}
+//!         },
+//!         "required": ["city"]
+//!     }),
+//! };
+//!
+//! // Handle a tool call from the LLM
+//! let tool_call = ToolCall {
+//!     id: "call_123".to_string(),
+//!     name: "get_weather".to_string(),
+//!     arguments: serde_json::json!({"city": "London"}),
+//! };
+//!
+//! // Return the result
+//! let result = ToolResult {
+//!     tool_call_id: "call_123".to_string(),
+//!     content: "Sunny, 22°C".to_string(),
+//!     is_error: false,
+//!     error_category: None,
+//! };
+//! ```
+//!
+//! # Response Structure
+//!
+//! All providers return a [`Response`] containing:
+//! - Text content (for standard requests)
+//! - Structured JSON (when using `execute_structured_llm`)
+//! - Tool calls (when the model wants to call functions)
+//! - Token usage statistics
 
 use crate::error::UserErrorCategory;
 #[cfg(feature = "events")]
@@ -9,165 +67,666 @@ use crate::internals::events::{BusinessEvent, EventScope};
 use crate::messages::{UnifiedLLMRequest, UnifiedMessage};
 use serde::{Deserialize, Serialize};
 
-/// Result type alias for provider operations
+/// Result type alias for provider operations.
+///
+/// Uses `anyhow::Error` for flexible error handling across providers.
 pub type Result<T> = std::result::Result<T, anyhow::Error>;
 
-/// Tool definition for LLM operations
+/// Definition of a tool/function that the LLM can call.
+///
+/// Tools allow LLMs to perform actions by generating structured calls that your
+/// application executes. The LLM sees the tool's name, description, and parameter
+/// schema to understand when and how to use it.
+///
+/// # Example
+///
+/// ```rust
+/// use multi_llm::Tool;
+///
+/// let search_tool = Tool {
+///     name: "web_search".to_string(),
+///     description: "Search the web for information".to_string(),
+///     parameters: serde_json::json!({
+///         "type": "object",
+///         "properties": {
+///             "query": {
+///                 "type": "string",
+///                 "description": "The search query"
+///             },
+///             "max_results": {
+///                 "type": "integer",
+///                 "description": "Maximum results to return",
+///                 "default": 10
+///             }
+///         },
+///         "required": ["query"]
+///     }),
+/// };
+/// ```
+///
+/// # Parameter Schema
+///
+/// The `parameters` field should be a valid JSON Schema object describing the
+/// tool's input. Use `type`, `properties`, `required`, and `description` fields
+/// to help the LLM understand how to call your tool correctly.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Tool {
-    /// Tool name - must be unique within a request
+    /// Tool name - must be unique within a request.
+    ///
+    /// Use descriptive names like "get_weather" or "search_documents".
+    /// This is how the LLM identifies which tool to call.
     pub name: String,
-    /// Human-readable description
+
+    /// Human-readable description of what the tool does.
+    ///
+    /// Be specific about capabilities and limitations. This helps the LLM
+    /// decide when to use this tool vs. others.
     pub description: String,
-    /// JSON Schema defining the tool's input parameters
+
+    /// JSON Schema defining the tool's input parameters.
+    ///
+    /// Should be a JSON Schema object with `type: "object"` and `properties`
+    /// describing each parameter. Include `description` for each property.
     pub parameters: serde_json::Value,
 }
 
-/// Tool call from LLM response
+/// A tool call generated by the LLM.
+///
+/// When the LLM decides to use a tool, it generates a `ToolCall` with:
+/// - A unique ID to match with the response
+/// - The tool name to invoke
+/// - Arguments parsed from the conversation
+///
+/// Your application should:
+/// 1. Execute the tool with the provided arguments
+/// 2. Return a [`ToolResult`] with the matching `tool_call_id`
+/// 3. Continue the conversation so the LLM can use the result
+///
+/// # Example
+///
+/// ```rust
+/// use multi_llm::ToolCall;
+///
+/// // Received from LLM response
+/// let call = ToolCall {
+///     id: "call_abc123".to_string(),
+///     name: "get_weather".to_string(),
+///     arguments: serde_json::json!({"city": "Paris", "units": "celsius"}),
+/// };
+///
+/// // Parse and execute
+/// let city = call.arguments["city"].as_str().unwrap();
+/// // ... execute weather lookup ...
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ToolCall {
-    /// Unique identifier for this tool call
+    /// Unique identifier for this tool call (generated by the LLM).
+    ///
+    /// Use this ID when returning the [`ToolResult`] to match the response
+    /// with the original call.
     pub id: String,
-    /// Name of the tool to call
+
+    /// Name of the tool to call.
+    ///
+    /// Must match a [`Tool::name`] from the request's tool list.
     pub name: String,
-    /// Arguments to pass to the tool (as JSON)
+
+    /// Arguments to pass to the tool as JSON.
+    ///
+    /// Structure matches the `parameters` schema defined in the [`Tool`].
+    /// May be an empty object `{}` if the tool has no required parameters.
     pub arguments: serde_json::Value,
 }
 
-/// Tool execution result to send back to LLM
+/// Result from executing a tool, sent back to the LLM.
+///
+/// After executing a [`ToolCall`], create a `ToolResult` to send back.
+/// The LLM will use this information to continue the conversation.
+///
+/// # Example
+///
+/// ```rust
+/// use multi_llm::ToolResult;
+///
+/// // Successful result
+/// let success = ToolResult {
+///     tool_call_id: "call_abc123".to_string(),
+///     content: "Weather in Paris: Sunny, 18°C".to_string(),
+///     is_error: false,
+///     error_category: None,
+/// };
+///
+/// // Error result
+/// use multi_llm::error::UserErrorCategory;
+/// let error = ToolResult {
+///     tool_call_id: "call_xyz789".to_string(),
+///     content: "City not found".to_string(),
+///     is_error: true,
+///     error_category: Some(UserErrorCategory::NotFound),
+/// };
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ToolResult {
-    /// ID of the tool call this is responding to
+    /// ID of the tool call this result responds to.
+    ///
+    /// Must match the `id` from the corresponding [`ToolCall`].
     pub tool_call_id: String,
-    /// Result content from the tool execution
+
+    /// Result content from the tool execution.
+    ///
+    /// For successful calls, this is the tool's output (often a string or JSON).
+    /// For errors, this should describe what went wrong.
     pub content: String,
-    /// Whether this result represents an error
+
+    /// Whether the tool execution failed.
+    ///
+    /// When `true`, the LLM knows the tool didn't work and may try alternatives.
     pub is_error: bool,
-    /// Error category for user-facing error handling (if is_error is true)
+
+    /// Error category for structured error handling.
+    ///
+    /// Only meaningful when `is_error` is `true`. Helps applications handle
+    /// different error types appropriately.
     pub error_category: Option<UserErrorCategory>,
 }
 
-/// Tool choice strategy for LLM operations
+/// Strategy for how the LLM should handle tool selection.
+///
+/// Controls whether the LLM must use tools, can choose to use them, or is
+/// restricted from using them.
+///
+/// # Example
+///
+/// ```rust
+/// use multi_llm::{RequestConfig, ToolChoice};
+///
+/// // Let the model decide
+/// let config = RequestConfig {
+///     tool_choice: Some(ToolChoice::Auto),
+///     ..Default::default()
+/// };
+///
+/// // Force a specific tool
+/// let config = RequestConfig {
+///     tool_choice: Some(ToolChoice::Specific("get_weather".to_string())),
+///     ..Default::default()
+/// };
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub enum ToolChoice {
-    /// Let the model decide whether and which tools to use
+    /// Let the model decide whether and which tools to use.
+    ///
+    /// The model may call zero, one, or multiple tools based on the conversation.
     #[default]
     Auto,
-    /// Don't use any tools
+
+    /// Disable tool use entirely for this request.
+    ///
+    /// Even if tools are defined, the model will not call them.
     None,
-    /// Must use at least one tool
+
+    /// Force the model to use at least one tool.
+    ///
+    /// Useful when you know a tool call is needed but don't care which one.
     Required,
-    /// Use a specific tool by name
+
+    /// Force the model to use a specific tool by name.
+    ///
+    /// The model will call exactly this tool (if arguments can be determined).
     Specific(String),
 }
 
-/// Configuration for LLM operations
+/// Configuration for a single LLM request.
+///
+/// Override default provider settings on a per-request basis. All fields are
+/// optional - unset fields use the provider's defaults.
+///
+/// # Basic Usage
+///
+/// ```rust
+/// use multi_llm::RequestConfig;
+///
+/// let config = RequestConfig {
+///     temperature: Some(0.7),
+///     max_tokens: Some(1000),
+///     ..Default::default()
+/// };
+/// ```
+///
+/// # With Tools
+///
+/// ```rust
+/// use multi_llm::{RequestConfig, Tool, ToolChoice};
+///
+/// let weather_tool = Tool {
+///     name: "get_weather".to_string(),
+///     description: "Get weather for a city".to_string(),
+///     parameters: serde_json::json!({"type": "object", "properties": {}}),
+/// };
+///
+/// let config = RequestConfig {
+///     tools: vec![weather_tool],
+///     tool_choice: Some(ToolChoice::Auto),
+///     ..Default::default()
+/// };
+/// ```
+///
+/// # Sampling Parameters
+///
+/// | Parameter | Range | Effect |
+/// |-----------|-------|--------|
+/// | `temperature` | 0.0-2.0 | Randomness (0=deterministic, 2=very random) |
+/// | `top_p` | 0.0-1.0 | Nucleus sampling threshold |
+/// | `top_k` | 1+ | Limit vocab to top K tokens |
+/// | `presence_penalty` | -2.0-2.0 | Discourage repetition |
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct RequestConfig {
     // Standard LLM parameters
-    /// Temperature setting for response randomness (0.0 to 1.0)
+    /// Temperature for response randomness.
+    ///
+    /// - `0.0`: Deterministic (always pick most likely token)
+    /// - `0.7`: Balanced (good default for most tasks)
+    /// - `1.0+`: More creative/random
+    ///
+    /// Range: 0.0 to 2.0 (provider-dependent)
     pub temperature: Option<f64>,
-    /// Maximum tokens to generate
+
+    /// Maximum tokens to generate in the response.
+    ///
+    /// Limits response length. The actual response may be shorter if the
+    /// model completes its thought naturally.
     pub max_tokens: Option<u32>,
-    /// Top-p sampling parameter (0.0 to 1.0)
+
+    /// Top-p (nucleus) sampling parameter.
+    ///
+    /// Only consider tokens whose cumulative probability exceeds this threshold.
+    /// Lower values = more focused, higher values = more diverse.
+    /// Range: 0.0 to 1.0 (typically 0.9-0.95)
     pub top_p: Option<f64>,
-    /// Top-k sampling parameter
+
+    /// Top-k sampling parameter.
+    ///
+    /// Only consider the top K most likely tokens at each step.
+    /// Lower values = more focused. Not all providers support this.
     pub top_k: Option<u32>,
-    /// Min-p sampling parameter (0.0 to 1.0)
+
+    /// Min-p sampling parameter.
+    ///
+    /// Filter tokens below this probability relative to the top token.
+    /// Range: 0.0 to 1.0. Not all providers support this.
     pub min_p: Option<f64>,
-    /// Presence penalty to discourage repetition
+
+    /// Presence penalty to discourage repetition.
+    ///
+    /// Positive values reduce likelihood of repeating tokens that have appeared.
+    /// Range: -2.0 to 2.0 (typically 0.0 to 1.0)
     pub presence_penalty: Option<f64>,
-    /// Response format specification (for structured output)
+
+    /// Response format for structured output.
+    ///
+    /// When set, the model attempts to return JSON matching the schema.
+    /// Use with [`LlmProvider::execute_structured_llm()`] for best results.
     pub response_format: Option<ResponseFormat>,
 
     // Tool-specific configuration
-    /// Tools available for this request
+    /// Tools available for this request.
+    ///
+    /// Define functions the LLM can call. See [`Tool`] for details.
     pub tools: Vec<Tool>,
-    /// How the model should handle tool selection
+
+    /// Strategy for tool selection.
+    ///
+    /// Controls whether tools are optional, required, or disabled.
+    /// See [`ToolChoice`] for options.
     pub tool_choice: Option<ToolChoice>,
 
     // Context metadata for logging and analytics
-    /// User ID for cache hit analysis
+    /// User ID for analytics and cache analysis.
+    ///
+    /// Helps track cache hit rates per user and debug user-specific issues.
     pub user_id: Option<String>,
-    /// Session ID for session-level cache analysis
+
+    /// Session ID for session-level analytics.
+    ///
+    /// Track cache performance and behavior within a conversation session.
     pub session_id: Option<String>,
-    /// LLM path context for distinguishing call types
+
+    /// LLM path context for distinguishing call types.
+    ///
+    /// Useful when your application has multiple LLM call paths
+    /// (e.g., "chat", "analysis", "summarization").
     pub llm_path: Option<String>,
 }
 
-/// Response format specification for structured output
+/// Schema specification for structured JSON output.
+///
+/// When you need the LLM to return data in a specific JSON format, define
+/// a `ResponseFormat` with a JSON Schema. The model will attempt to conform
+/// its output to this schema.
+///
+/// # Example
+///
+/// ```rust
+/// use multi_llm::ResponseFormat;
+///
+/// let format = ResponseFormat {
+///     name: "person_info".to_string(),
+///     schema: serde_json::json!({
+///         "type": "object",
+///         "properties": {
+///             "name": {"type": "string"},
+///             "age": {"type": "integer"},
+///             "email": {"type": "string", "format": "email"}
+///         },
+///         "required": ["name", "age"]
+///     }),
+/// };
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ResponseFormat {
-    /// Name of the JSON schema
+    /// Name identifier for this schema.
+    ///
+    /// Used for logging and debugging. Should be descriptive of the expected output.
     pub name: String,
-    /// JSON schema specification
+
+    /// JSON Schema specification defining the expected output structure.
+    ///
+    /// The model will attempt to return JSON that validates against this schema.
+    /// Include `type`, `properties`, `required`, and `description` fields.
     pub schema: serde_json::Value,
 }
 
-/// Token usage information
+/// Token usage statistics for an LLM request.
+///
+/// Tracks how many tokens were consumed by the prompt and completion,
+/// useful for cost estimation and monitoring context window usage.
+///
+/// # Cost Estimation
+///
+/// Most providers charge per token. Multiply token counts by the provider's
+/// per-token rate to estimate costs:
+///
+/// ```rust
+/// use multi_llm::TokenUsage;
+///
+/// let usage = TokenUsage {
+///     prompt_tokens: 1000,
+///     completion_tokens: 500,
+///     total_tokens: 1500,
+/// };
+///
+/// // Example: OpenAI GPT-4 pricing (illustrative)
+/// let prompt_cost = usage.prompt_tokens as f64 * 0.00003;
+/// let completion_cost = usage.completion_tokens as f64 * 0.00006;
+/// let total_cost = prompt_cost + completion_cost;
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TokenUsage {
-    /// Number of tokens in the prompt
+    /// Number of tokens in the prompt/input.
+    ///
+    /// Includes system messages, conversation history, and the current query.
     pub prompt_tokens: u32,
-    /// Number of tokens in the completion
+
+    /// Number of tokens in the completion/output.
+    ///
+    /// The generated response from the model.
     pub completion_tokens: u32,
-    /// Total tokens used (prompt + completion)
+
+    /// Total tokens used (prompt + completion).
+    ///
+    /// Should equal `prompt_tokens + completion_tokens`.
     pub total_tokens: u32,
 }
 
-/// Response from LLM operations
+/// Response from an LLM operation.
+///
+/// Contains the model's output along with metadata about the request.
+/// Check `tool_calls` first - if non-empty, the model wants to call functions
+/// rather than provide a final response.
+///
+/// # Basic Response
+///
+/// ```rust,no_run
+/// use multi_llm::Response;
+///
+/// # fn example(response: Response) {
+/// // Standard text response
+/// println!("Response: {}", response.content);
+///
+/// // Check token usage
+/// if let Some(usage) = &response.usage {
+///     println!("Used {} tokens", usage.total_tokens);
+/// }
+/// # }
+/// ```
+///
+/// # Tool Calling Response
+///
+/// ```rust,no_run
+/// use multi_llm::Response;
+///
+/// # fn example(response: Response) {
+/// // Check if model wants to call tools
+/// if !response.tool_calls.is_empty() {
+///     for call in &response.tool_calls {
+///         println!("Tool: {} with args: {}", call.name, call.arguments);
+///         // Execute tool and return result...
+///     }
+/// }
+/// # }
+/// ```
+///
+/// # Structured Response
+///
+/// ```rust,no_run
+/// use multi_llm::Response;
+///
+/// # fn example(response: Response) {
+/// // When using execute_structured_llm
+/// if let Some(json) = &response.structured_response {
+///     let name = json["name"].as_str().unwrap_or("unknown");
+///     println!("Extracted name: {}", name);
+/// }
+/// # }
+/// ```
 #[derive(Debug, Clone)]
 pub struct Response {
-    /// Primary text content of the response
+    /// Primary text content of the response.
+    ///
+    /// For standard requests, this is the model's natural language output.
+    /// May be empty if the model only returned tool calls.
     pub content: String,
-    /// Structured JSON response (if response_format was specified)
+
+    /// Parsed JSON when using structured output.
+    ///
+    /// Populated when using [`LlmProvider::execute_structured_llm()`] with a schema.
+    /// Contains the parsed JSON that (should) match the requested schema.
     pub structured_response: Option<serde_json::Value>,
-    /// Tool calls made by the LLM (if any)
+
+    /// Tool calls the model wants to execute.
+    ///
+    /// If non-empty, the model is requesting function calls rather than
+    /// providing a final answer. Execute the tools and continue the conversation.
     pub tool_calls: Vec<ToolCall>,
-    /// Token usage information
+
+    /// Token usage statistics for this request.
+    ///
+    /// May be `None` if the provider doesn't report usage or if the request failed.
     pub usage: Option<TokenUsage>,
-    /// Model that generated the response
+
+    /// The model that generated this response.
+    ///
+    /// Useful when the provider might use different models than requested
+    /// (e.g., fallback models or model aliases).
     pub model: Option<String>,
-    /// Raw response body for debugging
+
+    /// Raw response body for debugging.
+    ///
+    /// Contains the unprocessed JSON response from the provider API.
+    /// Useful for debugging parsing issues or accessing provider-specific fields.
     pub raw_body: Option<String>,
 }
 
-/// Business event generated during LLM operations
+/// Business event generated during LLM operations.
 ///
-/// Only available with the `events` feature enabled.
+/// Wraps a [`BusinessEvent`] with its scope for routing to the appropriate
+/// storage backend. Only available with the `events` feature enabled.
+///
+/// # Feature Flag
+///
+/// This type requires the `events` feature:
+/// ```toml
+/// [dependencies]
+/// multi-llm = { version = "...", features = ["events"] }
+/// ```
 #[cfg(feature = "events")]
 #[derive(Debug, Clone)]
 pub struct LLMBusinessEvent {
-    /// The business event to log
+    /// The business event containing type and metadata.
     pub event: BusinessEvent,
-    /// Event scope (user or system level)
+
+    /// Scope determining where the event should be stored.
+    ///
+    /// - [`EventScope::User`]: Written to user-specific storage
+    /// - [`EventScope::System`]: Written to system-wide storage
     pub scope: EventScope,
 }
 
-/// Complete tool calling round state for provider message building
+/// State for a tool calling round in multi-turn conversations.
+///
+/// When using tool calling, conversations often have multiple rounds:
+/// 1. User asks a question
+/// 2. Assistant requests tool calls
+/// 3. Tools execute and return results
+/// 4. Assistant uses results to form final response
+///
+/// `ToolCallingRound` captures the assistant's tool requests and the corresponding
+/// results, allowing providers to properly format multi-turn tool conversations.
+///
+/// # Example Flow
+///
+/// ```rust,no_run
+/// use multi_llm::{ToolCallingRound, ToolResult, UnifiedMessage};
+///
+/// // After receiving tool calls from the LLM
+/// # fn example(assistant_response: UnifiedMessage, tool_results: Vec<ToolResult>) {
+/// let round = ToolCallingRound {
+///     assistant_message: assistant_response,  // The message with tool calls
+///     tool_results,  // Results from executing those calls
+/// };
+///
+/// // Pass to execute_llm for the next turn
+/// // provider.execute_llm(request, Some(round), config).await?;
+/// # }
+/// ```
 #[derive(Debug, Clone)]
 pub struct ToolCallingRound {
-    /// The complete assistant message that initiated tool calls
+    /// The assistant message that initiated tool calls.
+    ///
+    /// This message contains the tool call content variants
+    /// that the assistant generated.
     pub assistant_message: UnifiedMessage,
-    /// Tool execution results from the current round
+
+    /// Results from executing the requested tools.
+    ///
+    /// Each result's `tool_call_id` should match an ID from the assistant message.
     pub tool_results: Vec<ToolResult>,
 }
 
-/// Trait for LLM providers to implement
+/// Trait implemented by all LLM providers.
 ///
-/// This trait defines the contract between multi-llm and LLM providers.
-/// Phase 2 should consider if this trait belongs in multi-llm rather than being extracted.
+/// This is the core abstraction that makes multi-llm work. All providers
+/// (OpenAI, Anthropic, Ollama, LM Studio) implement this trait, allowing
+/// you to switch providers without changing your application code.
+///
+/// # Usage
+///
+/// You typically don't implement this trait yourself. Instead, use
+/// [`UnifiedLLMClient`](crate::UnifiedLLMClient) which wraps all providers:
+///
+/// ```rust,no_run
+/// use multi_llm::{UnifiedLLMClient, LLMConfig, UnifiedMessage, UnifiedLLMRequest, LlmProvider};
+///
+/// # async fn example() -> anyhow::Result<()> {
+/// let config = LLMConfig::from_env()?;
+/// let client = UnifiedLLMClient::from_config(config)?;
+///
+/// let request = UnifiedLLMRequest::new(vec![
+///     UnifiedMessage::user("Hello!")
+/// ]);
+///
+/// let response = client.execute_llm(request, None, None).await?;
+/// println!("Response: {}", response.content);
+/// # Ok(())
+/// # }
+/// ```
 ///
 /// # Return Types
-/// - With `events` feature: Returns `(Response, Vec<LLMBusinessEvent>)`
-/// - Without `events` feature: Returns `Response`
+///
+/// Return types depend on the `events` feature:
+/// - **Without `events`**: Returns `Result<Response>`
+/// - **With `events`**: Returns `Result<(Response, Vec<LLMBusinessEvent>)>`
+///
+/// # Implementing Custom Providers
+///
+/// If you need to implement a custom provider:
+///
+/// ```rust,ignore
+/// use multi_llm::{LlmProvider, UnifiedLLMRequest, RequestConfig, Response, ToolCallingRound};
+/// use async_trait::async_trait;
+///
+/// struct MyProvider { /* ... */ }
+///
+/// #[async_trait]
+/// impl LlmProvider for MyProvider {
+///     async fn execute_llm(
+///         &self,
+///         request: UnifiedLLMRequest,
+///         current_tool_round: Option<ToolCallingRound>,
+///         config: Option<RequestConfig>,
+///     ) -> multi_llm::provider::Result<Response> {
+///         // Convert request to your API format
+///         // Make API call
+///         // Convert response to Response
+///         todo!()
+///     }
+///
+///     async fn execute_structured_llm(
+///         &self,
+///         request: UnifiedLLMRequest,
+///         current_tool_round: Option<ToolCallingRound>,
+///         schema: serde_json::Value,
+///         config: Option<RequestConfig>,
+///     ) -> multi_llm::provider::Result<Response> {
+///         // Similar to execute_llm but with JSON schema enforcement
+///         todo!()
+///     }
+///
+///     fn provider_name(&self) -> &'static str {
+///         "my_provider"
+///     }
+/// }
+/// ```
 #[async_trait::async_trait]
 pub trait LlmProvider: Send + Sync {
-    /// Execute LLM operation with unified context
+    /// Execute an LLM request and return the response.
+    ///
+    /// This is the primary method for interacting with LLMs. It handles:
+    /// - Message conversion to provider-specific formats
+    /// - Tool calling (if tools are defined in the request)
+    /// - Caching hints (for providers that support it)
+    /// - Retry logic (based on provider configuration)
+    ///
+    /// # Arguments
+    ///
+    /// * `request` - The unified request containing messages and optional config
+    /// * `current_tool_round` - Previous tool calling state for multi-turn tool use
+    /// * `config` - Optional per-request configuration overrides
     ///
     /// # Returns
-    /// - With `events` feature: `Result<(Response, Vec<LLMBusinessEvent>)>`
+    ///
     /// - Without `events` feature: `Result<Response>`
+    /// - With `events` feature: `Result<(Response, Vec<LLMBusinessEvent>)>`
     #[cfg(feature = "events")]
     async fn execute_llm(
         &self,
@@ -176,11 +735,19 @@ pub trait LlmProvider: Send + Sync {
         config: Option<RequestConfig>,
     ) -> Result<(Response, Vec<LLMBusinessEvent>)>;
 
-    /// Execute LLM operation with unified context
+    /// Execute an LLM request and return the response.
     ///
-    /// # Returns
-    /// - With `events` feature: `Result<(Response, Vec<LLMBusinessEvent>)>`
-    /// - Without `events` feature: `Result<Response>`
+    /// This is the primary method for interacting with LLMs. It handles:
+    /// - Message conversion to provider-specific formats
+    /// - Tool calling (if tools are defined in the request)
+    /// - Caching hints (for providers that support it)
+    /// - Retry logic (based on provider configuration)
+    ///
+    /// # Arguments
+    ///
+    /// * `request` - The unified request containing messages and optional config
+    /// * `current_tool_round` - Previous tool calling state for multi-turn tool use
+    /// * `config` - Optional per-request configuration overrides
     #[cfg(not(feature = "events"))]
     async fn execute_llm(
         &self,
@@ -189,13 +756,23 @@ pub trait LlmProvider: Send + Sync {
         config: Option<RequestConfig>,
     ) -> Result<Response>;
 
-    /// Execute structured LLM operation with unified context
+    /// Execute an LLM request with structured JSON output.
     ///
-    /// Returns Response with structured_response field populated.
+    /// Like [`execute_llm()`](Self::execute_llm), but instructs the model to return
+    /// JSON conforming to the provided schema. The parsed JSON is available in
+    /// [`Response::structured_response`].
+    ///
+    /// # Arguments
+    ///
+    /// * `request` - The unified request containing messages
+    /// * `current_tool_round` - Previous tool calling state
+    /// * `schema` - JSON Schema the response should conform to
+    /// * `config` - Optional per-request configuration overrides
     ///
     /// # Returns
-    /// - With `events` feature: `Result<(Response, Vec<LLMBusinessEvent>)>`
+    ///
     /// - Without `events` feature: `Result<Response>`
+    /// - With `events` feature: `Result<(Response, Vec<LLMBusinessEvent>)>`
     #[cfg(feature = "events")]
     async fn execute_structured_llm(
         &self,
@@ -205,13 +782,18 @@ pub trait LlmProvider: Send + Sync {
         config: Option<RequestConfig>,
     ) -> Result<(Response, Vec<LLMBusinessEvent>)>;
 
-    /// Execute structured LLM operation with unified context
+    /// Execute an LLM request with structured JSON output.
     ///
-    /// Returns Response with structured_response field populated.
+    /// Like [`execute_llm()`](Self::execute_llm), but instructs the model to return
+    /// JSON conforming to the provided schema. The parsed JSON is available in
+    /// [`Response::structured_response`].
     ///
-    /// # Returns
-    /// - With `events` feature: `Result<(Response, Vec<LLMBusinessEvent>)>`
-    /// - Without `events` feature: `Result<Response>`
+    /// # Arguments
+    ///
+    /// * `request` - The unified request containing messages
+    /// * `current_tool_round` - Previous tool calling state
+    /// * `schema` - JSON Schema the response should conform to
+    /// * `config` - Optional per-request configuration overrides
     #[cfg(not(feature = "events"))]
     async fn execute_structured_llm(
         &self,
@@ -221,7 +803,10 @@ pub trait LlmProvider: Send + Sync {
         config: Option<RequestConfig>,
     ) -> Result<Response>;
 
-    /// Get provider name for logging and debugging
+    /// Get the provider's identifier.
+    ///
+    /// Returns a static string like "anthropic", "openai", "ollama", or "lmstudio".
+    /// Used for logging, debugging, and provider-specific behavior.
     fn provider_name(&self) -> &'static str;
 }
 

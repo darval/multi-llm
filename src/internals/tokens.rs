@@ -1,34 +1,129 @@
+//! Token counting utilities for LLM providers.
+//!
+//! This module provides token counting implementations for different LLM providers.
+//! Accurate token counting is important for:
+//! - Staying within context window limits
+//! - Estimating API costs
+//! - Optimizing prompts
+//!
+//! # Usage
+//!
+//! Use [`TokenCounterFactory`] to create counters for specific providers:
+//!
+//! ```rust,no_run
+//! use multi_llm::{TokenCounterFactory, TokenCounter};
+//!
+//! // Create counter for OpenAI GPT-4
+//! let counter = TokenCounterFactory::create_counter("openai", "gpt-4")?;
+//!
+//! // Count tokens in text
+//! let tokens = counter.count_tokens("Hello, world!")?;
+//! println!("Token count: {}", tokens);
+//!
+//! // Check context limit
+//! let max = counter.max_context_tokens();
+//! println!("Max context: {} tokens", max);
+//! # Ok::<(), multi_llm::LlmError>(())
+//! ```
+//!
+//! # Provider-Specific Notes
+//!
+//! - **OpenAI**: Uses tiktoken with exact tokenization
+//! - **Anthropic**: Uses cl100k_base with 1.1x approximation factor
+//! - **Ollama/LM Studio**: Uses cl100k_base (may vary by model)
+//!
+//! # Available Types
+//!
+//! - [`TokenCounter`]: Trait for all token counters
+//! - [`OpenAITokenCounter`]: OpenAI GPT model tokenizer
+//! - [`AnthropicTokenCounter`]: Anthropic Claude approximation
+//! - [`TokenCounterFactory`]: Factory for creating counters
+
 use crate::error::{LlmError, LlmResult};
 use crate::logging::{log_debug, log_warn};
 
 use std::sync::Arc;
 use tiktoken_rs::{cl100k_base, o200k_base, CoreBPE};
 
-/// Token counting interface for different LLM providers
+/// Trait for counting tokens in text and messages.
+///
+/// Implement this trait to add support for new tokenizers.
+/// Use [`TokenCounterFactory`] to create instances for supported providers.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use multi_llm::{TokenCounter, TokenCounterFactory};
+///
+/// # fn example() -> multi_llm::LlmResult<()> {
+/// let counter = TokenCounterFactory::create_counter("openai", "gpt-4")?;
+///
+/// // Count tokens
+/// let count = counter.count_tokens("Hello, world!")?;
+///
+/// // Validate against limit
+/// counter.validate_token_limit("Some text...")?;
+///
+/// // Truncate if needed
+/// let truncated = counter.truncate_to_limit("Very long text...", 100)?;
+/// # Ok(())
+/// # }
+/// ```
 pub trait TokenCounter: Send + Sync + std::fmt::Debug {
-    /// Count tokens in a text string
+    /// Count tokens in a text string.
     ///
     /// # Errors
     ///
-    /// Returns [`LlmError::ConfigurationError`] if:
-    /// - Tokenizer is not properly initialized
-    /// - Text encoding fails due to invalid characters
+    /// Returns [`LlmError::ConfigurationError`] if the tokenizer
+    /// fails to encode the text.
     fn count_tokens(&self, text: &str) -> LlmResult<u32>;
 
-    /// Count tokens in messages (includes role and formatting tokens)
+    /// Count tokens in a list of messages (includes formatting overhead).
+    ///
+    /// The count includes tokens for role markers, message separators,
+    /// and other provider-specific formatting.
     fn count_message_tokens(&self, messages: &[serde_json::Value]) -> LlmResult<u32>;
 
-    /// Get the maximum context window size for this tokenizer
+    /// Get the maximum context window size for this tokenizer.
     fn max_context_tokens(&self) -> u32;
 
-    /// Check if a text would exceed token limits
+    /// Validate that text doesn't exceed the token limit.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LlmError::TokenLimitExceeded`] if the text exceeds
+    /// the maximum context window.
     fn validate_token_limit(&self, text: &str) -> LlmResult<()>;
 
-    /// Truncate text to fit within token limits
+    /// Truncate text to fit within a token limit.
+    ///
+    /// If the text already fits, it's returned unchanged.
     fn truncate_to_limit(&self, text: &str, max_tokens: u32) -> LlmResult<String>;
 }
 
-/// OpenAI-compatible token counter using tiktoken
+/// Token counter for OpenAI GPT models using tiktoken.
+///
+/// Provides exact token counts for OpenAI models. Automatically selects
+/// the correct tokenizer based on the model name.
+///
+/// # Supported Models
+///
+/// | Model | Tokenizer | Context Window |
+/// |-------|-----------|---------------|
+/// | gpt-4-turbo | cl100k_base | 128K |
+/// | gpt-4 | cl100k_base | 8K |
+/// | gpt-3.5-turbo | cl100k_base | 16K |
+/// | o1-* | o200k_base | 200K |
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use multi_llm::{OpenAITokenCounter, TokenCounter};
+///
+/// let counter = OpenAITokenCounter::new("gpt-4")?;
+/// let tokens = counter.count_tokens("Hello, world!")?;
+/// # Ok::<(), multi_llm::LlmError>(())
+/// ```
 pub struct OpenAITokenCounter {
     tokenizer: CoreBPE,
     max_tokens: u32,
@@ -234,7 +329,35 @@ impl OpenAITokenCounter {
     }
 }
 
-/// Anthropic token counter (uses cl100k_base as approximation)
+/// Token counter for Anthropic Claude models.
+///
+/// Uses cl100k_base tokenizer with a 1.1x approximation factor, since
+/// Claude's actual tokenizer isn't publicly available. This provides
+/// conservative estimates (slightly over-counting).
+///
+/// # Context Windows
+///
+/// | Model | Context Window |
+/// |-------|---------------|
+/// | claude-3-5-sonnet | 200K |
+/// | claude-3-opus | 200K |
+/// | claude-3-haiku | 200K |
+/// | claude-2.x | 100K |
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use multi_llm::{AnthropicTokenCounter, TokenCounter};
+///
+/// let counter = AnthropicTokenCounter::new("claude-3-5-sonnet-20241022")?;
+/// let tokens = counter.count_tokens("Hello, world!")?;
+/// # Ok::<(), multi_llm::LlmError>(())
+/// ```
+///
+/// # Accuracy Note
+///
+/// Token counts are approximate. The 1.1x factor provides a safety margin
+/// to avoid accidentally exceeding context limits.
 pub struct AnthropicTokenCounter {
     tokenizer: CoreBPE,
     max_tokens: u32,
@@ -353,7 +476,34 @@ impl TokenCounter for AnthropicTokenCounter {
     }
 }
 
-/// Token counter factory for creating appropriate counters per provider
+/// Factory for creating token counters for different providers.
+///
+/// Use this factory to get the appropriate token counter for your provider
+/// and model. The factory handles selecting the correct tokenizer and
+/// context window size.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use multi_llm::{TokenCounterFactory, TokenCounter};
+///
+/// // Create counter for OpenAI
+/// let openai = TokenCounterFactory::create_counter("openai", "gpt-4")?;
+///
+/// // Create counter for Anthropic
+/// let anthropic = TokenCounterFactory::create_counter("anthropic", "claude-3-5-sonnet")?;
+///
+/// // Create counter with custom limit
+/// let custom = TokenCounterFactory::create_counter_with_limit("openai", "gpt-4", 4096)?;
+/// # Ok::<(), multi_llm::LlmError>(())
+/// ```
+///
+/// # Supported Providers
+///
+/// - `openai`: Uses tiktoken for exact counts
+/// - `anthropic`: Uses approximation with safety margin
+/// - `ollama`: Uses cl100k_base (approximation)
+/// - `lmstudio`: Uses cl100k_base (approximation)
 pub struct TokenCounterFactory;
 
 impl TokenCounterFactory {

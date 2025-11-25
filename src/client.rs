@@ -1,3 +1,8 @@
+//! Unified LLM client for multi-provider operations.
+//!
+//! This module provides [`UnifiedLLMClient`], the main entry point for
+//! interacting with LLM providers through multi-llm.
+
 use crate::config::{AnthropicConfig, LLMConfig, LMStudioConfig, OllamaConfig, OpenAIConfig};
 use crate::error::{LlmError, LlmResult};
 use crate::logging::log_debug;
@@ -8,7 +13,7 @@ use crate::provider::{LlmProvider, RequestConfig, Response, ToolCallingRound};
 use crate::providers::{AnthropicProvider, LMStudioProvider, OllamaProvider, OpenAIProvider};
 use async_trait::async_trait;
 
-/// Internal provider enum for UnifiedLLMClient
+/// Internal provider enum (not exposed publicly).
 enum LLMProvider {
     Anthropic(AnthropicProvider),
     OpenAI(OpenAIProvider),
@@ -16,8 +21,102 @@ enum LLMProvider {
     Ollama(OllamaProvider),
 }
 
-/// Unified LLM client that implements LlmProvider
-/// This is the primary interface for multi-provider LLM operations
+/// Unified client for multi-provider LLM operations.
+///
+/// `UnifiedLLMClient` is the primary interface for using multi-llm. It wraps
+/// all supported providers behind a single [`LlmProvider`] interface, allowing
+/// you to switch providers without changing your application code.
+///
+/// # Quick Start
+///
+/// ```rust,no_run
+/// use multi_llm::{UnifiedLLMClient, LLMConfig, UnifiedMessage, UnifiedLLMRequest, LlmProvider};
+///
+/// # async fn example() -> anyhow::Result<()> {
+/// // Create client from environment variables
+/// let client = UnifiedLLMClient::from_env()?;
+///
+/// // Build a request
+/// let request = UnifiedLLMRequest::new(vec![
+///     UnifiedMessage::system("You are a helpful assistant."),
+///     UnifiedMessage::user("What's the capital of France?"),
+/// ]);
+///
+/// // Execute the request
+/// let response = client.execute_llm(request, None, None).await?;
+/// println!("Response: {}", response.content);
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # From Configuration
+///
+/// ```rust,no_run
+/// use multi_llm::{UnifiedLLMClient, LLMConfig, OpenAIConfig, DefaultLLMParams};
+///
+/// let config = LLMConfig {
+///     provider: Box::new(OpenAIConfig {
+///         api_key: Some("sk-...".to_string()),
+///         default_model: "gpt-4-turbo-preview".to_string(),
+///         ..Default::default()
+///     }),
+///     default_params: DefaultLLMParams::default(),
+/// };
+///
+/// let client = UnifiedLLMClient::from_config(config)?;
+/// # Ok::<(), multi_llm::LlmError>(())
+/// ```
+///
+/// # Tool Calling
+///
+/// ```rust,no_run
+/// use multi_llm::{UnifiedLLMClient, UnifiedMessage, UnifiedLLMRequest, RequestConfig, Tool, ToolChoice, LlmProvider};
+///
+/// # async fn example(client: UnifiedLLMClient) -> anyhow::Result<()> {
+/// // Define a tool
+/// let weather_tool = Tool {
+///     name: "get_weather".to_string(),
+///     description: "Get current weather".to_string(),
+///     parameters: serde_json::json!({
+///         "type": "object",
+///         "properties": {
+///             "city": {"type": "string"}
+///         },
+///         "required": ["city"]
+///     }),
+/// };
+///
+/// let request = UnifiedLLMRequest::new(vec![
+///     UnifiedMessage::user("What's the weather in Paris?"),
+/// ]);
+///
+/// let config = RequestConfig {
+///     tools: vec![weather_tool],
+///     tool_choice: Some(ToolChoice::Auto),
+///     ..Default::default()
+/// };
+///
+/// let response = client.execute_llm(request, None, Some(config)).await?;
+///
+/// // Check for tool calls
+/// if !response.tool_calls.is_empty() {
+///     for call in &response.tool_calls {
+///         println!("Tool call: {} with {}", call.name, call.arguments);
+///         // Execute tool and continue conversation...
+///     }
+/// }
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # Supported Providers
+///
+/// | Provider | Config Type | API Key Required |
+/// |----------|------------|------------------|
+/// | Anthropic | [`AnthropicConfig`] | Yes |
+/// | OpenAI | [`OpenAIConfig`] | Yes |
+/// | Ollama | [`OllamaConfig`] | No (local) |
+/// | LM Studio | [`LMStudioConfig`] | No (local) |
 pub struct UnifiedLLMClient {
     provider: LLMProvider,
 }

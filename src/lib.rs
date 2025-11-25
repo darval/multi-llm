@@ -76,14 +76,14 @@ pub use error::{LlmError, LlmResult};
 
 // Messages - the core unified message architecture
 pub use messages::{
-    MessageAttributes, MessageCategory, MessageContent, MessageRole, UnifiedLLMRequest,
+    CacheType, MessageAttributes, MessageCategory, MessageContent, MessageRole, UnifiedLLMRequest,
     UnifiedMessage,
 };
 
 // Provider trait and types
 pub use provider::{
-    LlmProvider, RequestConfig, Response, ResponseFormat, TokenUsage, Tool, ToolCall, ToolChoice,
-    ToolResult,
+    LlmProvider, RequestConfig, Response, ResponseFormat, TokenUsage, Tool, ToolCall,
+    ToolCallingRound, ToolChoice, ToolResult,
 };
 
 // Providers

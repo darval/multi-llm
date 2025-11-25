@@ -1,3 +1,74 @@
+//! Configuration types for LLM providers.
+//!
+//! This module provides configuration structures for all supported LLM providers.
+//! Each provider has its own config type implementing [`ProviderConfig`], plus
+//! shared types for default parameters and dual-path setups.
+//!
+//! # Quick Start
+//!
+//! ```rust,no_run
+//! use multi_llm::{LLMConfig, OpenAIConfig, DefaultLLMParams, UnifiedLLMClient};
+//!
+//! // Create config programmatically
+//! let config = LLMConfig {
+//!     provider: Box::new(OpenAIConfig {
+//!         api_key: Some("sk-...".to_string()),
+//!         ..Default::default()
+//!     }),
+//!     default_params: DefaultLLMParams::default(),
+//! };
+//!
+//! let client = UnifiedLLMClient::from_config(config)?;
+//! # Ok::<(), multi_llm::LlmError>(())
+//! ```
+//!
+//! # From Environment Variables
+//!
+//! ```rust,no_run
+//! use multi_llm::{LLMConfig, UnifiedLLMClient};
+//!
+//! // Uses AI_PROVIDER and provider-specific env vars
+//! let config = LLMConfig::from_env()?;
+//! let client = UnifiedLLMClient::from_config(config)?;
+//! # Ok::<(), multi_llm::LlmError>(())
+//! ```
+//!
+//! # Provider-Specific Configs
+//!
+//! | Provider | Config Type | Required Env Vars |
+//! |----------|------------|-------------------|
+//! | OpenAI | [`OpenAIConfig`] | `OPENAI_API_KEY` |
+//! | Anthropic | [`AnthropicConfig`] | `ANTHROPIC_API_KEY` |
+//! | Ollama | [`OllamaConfig`] | (none, local) |
+//! | LM Studio | [`LMStudioConfig`] | (none, local) |
+//!
+//! # Dual LLM Configuration
+//!
+//! For applications needing separate models for user-facing chat vs. background analysis:
+//!
+//! ```rust,no_run
+//! use multi_llm::{DualLLMConfig, LLMConfig, OpenAIConfig, AnthropicConfig, DefaultLLMParams};
+//!
+//! let dual_config = DualLLMConfig::new(
+//!     // User-facing: Claude for quality
+//!     LLMConfig {
+//!         provider: Box::new(AnthropicConfig {
+//!             api_key: Some("sk-ant-...".to_string()),
+//!             ..Default::default()
+//!         }),
+//!         default_params: DefaultLLMParams::default(),
+//!     },
+//!     // Background NLP: GPT-4 for structured analysis
+//!     LLMConfig {
+//!         provider: Box::new(OpenAIConfig {
+//!             api_key: Some("sk-...".to_string()),
+//!             ..Default::default()
+//!         }),
+//!         default_params: DefaultLLMParams::default(),
+//!     },
+//! );
+//! ```
+
 use crate::error::{LlmError, LlmResult};
 use crate::internals::retry::RetryPolicy;
 use crate::logging::log_debug;
@@ -5,48 +76,90 @@ use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::fmt::Debug;
 
-/// Trait for provider-specific configuration
+/// Trait for provider-specific configuration.
+///
+/// All provider configs (OpenAI, Anthropic, etc.) implement this trait.
+/// You typically don't need to implement this yourself unless adding
+/// a custom provider.
+///
+/// # Provided Implementations
+///
+/// - [`OpenAIConfig`]
+/// - [`AnthropicConfig`]
+/// - [`OllamaConfig`]
+/// - [`LMStudioConfig`]
 pub trait ProviderConfig: Send + Sync + Debug + Any {
-    /// Get the provider name
+    /// Get the provider identifier (e.g., "openai", "anthropic").
     fn provider_name(&self) -> &'static str;
 
-    /// Get maximum context tokens for this provider
+    /// Get the maximum context window size in tokens.
     fn max_context_tokens(&self) -> usize;
 
-    /// Validate the configuration is complete
-    /// Validate provider configuration
+    /// Validate that the configuration is complete and valid.
     ///
     /// # Errors
     ///
     /// Returns [`LlmError::ConfigurationError`] if:
-    /// - Required provider-specific fields are missing (e.g., API key)
-    /// - Configuration values are invalid (e.g., malformed URLs)
-    /// - Provider-specific validation rules fail
+    /// - Required fields are missing (e.g., API key for cloud providers)
+    /// - Field values are invalid (e.g., malformed URLs)
+    /// - Provider-specific validation fails
     fn validate(&self) -> LlmResult<()>;
 
-    /// Get the base URL for API calls
+    /// Get the base URL for API requests.
     fn base_url(&self) -> &str;
 
-    /// Get the API key if required
+    /// Get the API key, if one is configured.
     fn api_key(&self) -> Option<&str>;
 
-    /// Get the default model name
+    /// Get the default model name for this provider.
     fn default_model(&self) -> &str;
 
-    /// Helper for downcasting to concrete config types
+    /// Downcast helper for accessing concrete config types.
     fn as_any(&self) -> &dyn Any;
 
-    /// Get the retry policy for this provider
+    /// Get the retry policy for transient failures.
     fn retry_policy(&self) -> &RetryPolicy;
 }
 
-/// System-wide LLM configuration
+/// System-wide LLM configuration.
+///
+/// Combines a provider-specific configuration with default model parameters.
+/// This is the primary config type used to create a [`UnifiedLLMClient`](crate::UnifiedLLMClient).
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use multi_llm::{LLMConfig, AnthropicConfig, DefaultLLMParams};
+///
+/// let config = LLMConfig {
+///     provider: Box::new(AnthropicConfig {
+///         api_key: Some("sk-ant-...".to_string()),
+///         default_model: "claude-3-5-sonnet-20241022".to_string(),
+///         ..Default::default()
+///     }),
+///     default_params: DefaultLLMParams {
+///         temperature: 0.7,
+///         max_tokens: 4096,
+///         ..Default::default()
+///     },
+/// };
+/// ```
+///
+/// # From Environment
+///
+/// Use [`from_env()`](Self::from_env) to load from environment variables:
+/// - `AI_PROVIDER`: Provider name ("anthropic", "openai", "ollama", "lmstudio")
+/// - Provider-specific vars (e.g., `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`)
 #[derive(Debug)]
 pub struct LLMConfig {
-    /// The selected provider configuration
+    /// The provider-specific configuration.
+    ///
+    /// Contains API keys, endpoints, model selection, and provider features.
     pub provider: Box<dyn ProviderConfig>,
 
-    /// Default model parameters that apply across providers
+    /// Default parameters for LLM requests.
+    ///
+    /// Applied to all requests unless overridden by [`RequestConfig`](crate::RequestConfig).
     pub default_params: DefaultLLMParams,
 }
 
@@ -82,13 +195,55 @@ impl Clone for LLMConfig {
     }
 }
 
+/// Default parameters for LLM generation.
+///
+/// These values are used when a request doesn't specify its own values.
+/// All parameters have sensible defaults that work well for most use cases.
+///
+/// # Defaults
+///
+/// | Parameter | Default | Description |
+/// |-----------|---------|-------------|
+/// | `temperature` | 0.7 | Balanced creativity/consistency |
+/// | `max_tokens` | 1000 | Reasonable response length |
+/// | `top_p` | 0.9 | Standard nucleus sampling |
+/// | `top_k` | 40 | Vocabulary restriction |
+/// | `min_p` | 0.05 | Minimum probability filter |
+/// | `presence_penalty` | 0.0 | No repetition penalty |
+///
+/// # Example
+///
+/// ```rust
+/// use multi_llm::DefaultLLMParams;
+///
+/// // Use defaults
+/// let params = DefaultLLMParams::default();
+///
+/// // Or customize
+/// let params = DefaultLLMParams {
+///     temperature: 0.2,  // More deterministic
+///     max_tokens: 4096,  // Longer responses
+///     ..Default::default()
+/// };
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DefaultLLMParams {
+    /// Temperature for response randomness (0.0 = deterministic, 2.0 = very random).
     pub temperature: f64,
+
+    /// Maximum tokens to generate per response.
     pub max_tokens: u32,
+
+    /// Top-p (nucleus) sampling threshold.
     pub top_p: f64,
+
+    /// Top-k sampling limit.
     pub top_k: u32,
+
+    /// Minimum probability filter.
     pub min_p: f64,
+
+    /// Presence penalty to reduce repetition.
     pub presence_penalty: f64,
 }
 
@@ -105,17 +260,61 @@ impl Default for DefaultLLMParams {
     }
 }
 
-/// Anthropic-specific configuration
+/// Configuration for Anthropic Claude models.
+///
+/// Claude models support prompt caching for significant cost savings (90% on cache reads).
+/// Enable caching for static system prompts and context that doesn't change often.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use multi_llm::AnthropicConfig;
+///
+/// let config = AnthropicConfig {
+///     api_key: Some("sk-ant-api03-...".to_string()),
+///     default_model: "claude-3-5-sonnet-20241022".to_string(),
+///     enable_prompt_caching: true,
+///     cache_ttl: "1h".to_string(),  // 1-hour cache
+///     ..Default::default()
+/// };
+/// ```
+///
+/// # Environment Variables
+///
+/// - `ANTHROPIC_API_KEY`: API key (required)
+///
+/// # Models
+///
+/// - `claude-3-5-sonnet-20241022`: Latest Sonnet (recommended)
+/// - `claude-3-opus-20240229`: Most capable
+/// - `claude-3-haiku-20240307`: Fastest, cheapest
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnthropicConfig {
+    /// Anthropic API key (starts with "sk-ant-").
     pub api_key: Option<String>,
+
+    /// Base URL for API requests (default: `https://api.anthropic.com`).
     pub base_url: String,
+
+    /// Default model to use for requests.
     pub default_model: String,
+
+    /// Maximum context window size in tokens (200K for Claude 3).
     pub max_context_tokens: usize,
+
+    /// Retry policy for transient failures.
     pub retry_policy: RetryPolicy,
-    /// Enable prompt caching for static system prompts (reduces costs and latency)
+
+    /// Enable prompt caching for cost savings.
+    ///
+    /// When enabled, static system prompts and context are cached,
+    /// reducing costs by 90% on cache reads.
     pub enable_prompt_caching: bool,
-    /// Cache TTL setting: "5m" for 5-minute cache, "1h" for 1-hour cache
+
+    /// Cache TTL setting: "5m" for 5-minute cache, "1h" for 1-hour cache.
+    ///
+    /// - "5m": Ephemeral cache, 1.25x write cost, good for development
+    /// - "1h": Extended cache, 2x write cost, good for production
     pub cache_ttl: String,
 }
 
@@ -172,13 +371,48 @@ impl ProviderConfig for AnthropicConfig {
     }
 }
 
-/// OpenAI-specific configuration
+/// Configuration for OpenAI GPT models.
+///
+/// Supports GPT-4, GPT-3.5, and other OpenAI models. Also works with
+/// OpenAI-compatible APIs by changing the base URL.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use multi_llm::OpenAIConfig;
+///
+/// let config = OpenAIConfig {
+///     api_key: Some("sk-...".to_string()),
+///     default_model: "gpt-4-turbo-preview".to_string(),
+///     ..Default::default()
+/// };
+/// ```
+///
+/// # Environment Variables
+///
+/// - `OPENAI_API_KEY`: API key (required)
+/// - `OPENAI_BASE_URL`: Custom base URL (optional)
+///
+/// # Models
+///
+/// - `gpt-4-turbo-preview`: Latest GPT-4 Turbo (128K context)
+/// - `gpt-4`: Standard GPT-4 (8K context)
+/// - `gpt-3.5-turbo`: Fast and affordable (16K context)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenAIConfig {
+    /// OpenAI API key (starts with "sk-").
     pub api_key: Option<String>,
+
+    /// Base URL for API requests (default: `https://api.openai.com`).
     pub base_url: String,
+
+    /// Default model to use for requests.
     pub default_model: String,
+
+    /// Maximum context window size in tokens.
     pub max_context_tokens: usize,
+
+    /// Retry policy for transient failures.
     pub retry_policy: RetryPolicy,
 }
 
@@ -231,12 +465,45 @@ impl ProviderConfig for OpenAIConfig {
     }
 }
 
-/// LM Studio-specific configuration
+/// Configuration for LM Studio local models.
+///
+/// LM Studio provides an OpenAI-compatible API for running local models.
+/// No API key is required since it runs locally.
+///
+/// # Example
+///
+/// ```rust
+/// use multi_llm::LMStudioConfig;
+///
+/// let config = LMStudioConfig {
+///     base_url: "http://localhost:1234".to_string(),
+///     default_model: "local-model".to_string(),
+///     max_context_tokens: 4096,
+///     ..Default::default()
+/// };
+/// ```
+///
+/// # Environment Variables
+///
+/// - `LM_STUDIO_BASE_URL` or `OPENAI_BASE_URL`: Server URL (default: `http://localhost:1234`)
+///
+/// # Notes
+///
+/// - Start LM Studio server before making requests
+/// - Context window depends on the loaded model
+/// - Model name in config is ignored; uses whatever model is loaded in LM Studio
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LMStudioConfig {
+    /// Base URL for the LM Studio server (default: `http://localhost:1234`).
     pub base_url: String,
+
+    /// Default model name (LM Studio uses the loaded model regardless).
     pub default_model: String,
+
+    /// Maximum context window size (depends on loaded model).
     pub max_context_tokens: usize,
+
+    /// Retry policy for transient failures.
     pub retry_policy: RetryPolicy,
 }
 
@@ -290,12 +557,48 @@ impl ProviderConfig for LMStudioConfig {
     }
 }
 
-/// Ollama-specific configuration
+/// Configuration for Ollama local models.
+///
+/// Ollama is a tool for running open-source LLMs locally. It provides
+/// an OpenAI-compatible API and doesn't require an API key.
+///
+/// # Example
+///
+/// ```rust
+/// use multi_llm::OllamaConfig;
+///
+/// let config = OllamaConfig {
+///     base_url: "http://localhost:11434".to_string(),
+///     default_model: "llama2".to_string(),
+///     max_context_tokens: 4096,
+///     ..Default::default()
+/// };
+/// ```
+///
+/// # Environment Variables
+///
+/// None required (local service).
+///
+/// # Popular Models
+///
+/// - `llama2`: Meta's Llama 2
+/// - `mistral`: Mistral AI's model
+/// - `codellama`: Code-specialized Llama
+/// - `phi`: Microsoft's Phi model
+///
+/// Install models with: `ollama pull <model-name>`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OllamaConfig {
+    /// Base URL for the Ollama server (default: `http://localhost:11434`).
     pub base_url: String,
+
+    /// Default model to use (must be pulled with `ollama pull`).
     pub default_model: String,
+
+    /// Maximum context window size (depends on model).
     pub max_context_tokens: usize,
+
+    /// Retry policy for transient failures.
     pub retry_policy: RetryPolicy,
 }
 
@@ -347,12 +650,41 @@ impl ProviderConfig for OllamaConfig {
     }
 }
 
-/// Path identifier for dual LLM configuration
+/// Path identifier for dual LLM configurations.
+///
+/// When using [`DualLLMConfig`], this enum identifies which LLM
+/// configuration to use for a given request.
+///
+/// # Use Cases
+///
+/// - **User path**: User-facing responses that need high quality
+/// - **NLP path**: Background analysis, structured extraction, summaries
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use multi_llm::{DualLLMConfig, LLMPath};
+///
+/// # fn example(dual_config: DualLLMConfig) {
+/// // Get config for user-facing requests
+/// let user_config = dual_config.get_config(LLMPath::User);
+///
+/// // Get config for background processing
+/// let nlp_config = dual_config.get_config(LLMPath::Nlp);
+/// # }
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum LLMPath {
-    /// Main conversation path - user-facing responses
+    /// User-facing conversation path.
+    ///
+    /// Use for responses shown directly to users. Typically configured
+    /// with a high-quality model and moderate temperature.
     User,
-    /// Background NLP analysis path - structured processing
+
+    /// Background NLP analysis path.
+    ///
+    /// Use for structured data extraction, analysis, and processing
+    /// that happens behind the scenes. Can use faster/cheaper models.
     Nlp,
 }
 
@@ -365,12 +697,46 @@ impl std::fmt::Display for LLMPath {
     }
 }
 
-/// Dual LLM configuration supporting separate user and NLP paths
+/// Dual LLM configuration supporting separate user and NLP paths.
+///
+/// Some applications benefit from using different models for different tasks:
+/// - **User path**: High-quality model for user-facing responses
+/// - **NLP path**: Fast/cheap model for background processing
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use multi_llm::{DualLLMConfig, LLMConfig, AnthropicConfig, OpenAIConfig, DefaultLLMParams, LLMPath};
+///
+/// // Claude for user-facing, GPT-4 for NLP
+/// let dual = DualLLMConfig::new(
+///     LLMConfig {
+///         provider: Box::new(AnthropicConfig {
+///             api_key: Some("sk-ant-...".to_string()),
+///             ..Default::default()
+///         }),
+///         default_params: DefaultLLMParams::default(),
+///     },
+///     LLMConfig {
+///         provider: Box::new(OpenAIConfig {
+///             api_key: Some("sk-...".to_string()),
+///             default_model: "gpt-3.5-turbo".to_string(),  // Cheaper for NLP
+///             ..Default::default()
+///         }),
+///         default_params: DefaultLLMParams::default(),
+///     },
+/// );
+///
+/// // Use the appropriate config
+/// let user_config = dual.get_config(LLMPath::User);
+/// let nlp_config = dual.get_config(LLMPath::Nlp);
+/// ```
 #[derive(Debug, Clone)]
 pub struct DualLLMConfig {
-    /// Configuration for user-facing conversation path
+    /// Configuration for user-facing conversation path.
     pub user_llm: LLMConfig,
-    /// Configuration for background NLP analysis path
+
+    /// Configuration for background NLP analysis path.
     pub nlp_llm: LLMConfig,
 }
 
