@@ -5,7 +5,7 @@ use super::types::{
 };
 use crate::config::AnthropicConfig;
 use crate::core_types::messages::{CacheType, MessageContent, MessageRole, UnifiedMessage};
-use crate::log_debug;
+use crate::logging::log_debug;
 
 /// Get TTL string for a cache type (Anthropic uses "ephemeral" type with different TTLs)
 fn get_cache_ttl(cache_type: CacheType) -> &'static str {

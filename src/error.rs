@@ -1,5 +1,5 @@
-use crate::{log_error, log_warn};
-use crate::{ErrorCategory, ErrorSeverity};
+use crate::core_types::{ErrorCategory, ErrorSeverity};
+use crate::logging::{log_error, log_warn};
 use thiserror::Error;
 
 /// Result type for LLM operations  

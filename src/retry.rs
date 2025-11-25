@@ -7,7 +7,7 @@
 //! - Configurable timeout: 30s request, 5m total operation
 
 use crate::error::{LlmError, LlmResult};
-use crate::{log_debug, log_error, log_warn};
+use crate::logging::{log_debug, log_error, log_warn};
 
 use std::time::{Duration, Instant};
 use tokio::time::sleep;
@@ -44,7 +44,7 @@ impl Default for RetryPolicy {
 
 /// Circuit breaker states
 #[derive(Debug, Clone, PartialEq)]
-pub enum CircuitState {
+pub(crate) enum CircuitState {
     Closed,   // Normal operation
     Open,     // Failing, blocking requests
     HalfOpen, // Testing if service recovered
@@ -52,7 +52,7 @@ pub enum CircuitState {
 
 /// Circuit breaker for provider resilience
 #[derive(Debug)]
-pub struct CircuitBreaker {
+pub(crate) struct CircuitBreaker {
     pub(crate) state: CircuitState,
     pub(crate) failure_count: u32,
     pub(crate) last_failure_time: Option<Instant>,
@@ -73,15 +73,6 @@ impl Default for CircuitBreaker {
 }
 
 impl CircuitBreaker {
-    /// Create a new circuit breaker with custom settings
-    pub fn new(failure_threshold: u32, recovery_timeout: Duration) -> Self {
-        Self {
-            failure_threshold,
-            recovery_timeout,
-            ..Default::default()
-        }
-    }
-
     /// Check if request should be allowed through the circuit breaker
     pub fn should_allow_request(&mut self) -> bool {
         match self.state {
@@ -160,7 +151,7 @@ impl CircuitBreaker {
 
 /// Retry executor that handles exponential backoff and circuit breaking
 #[derive(Debug)]
-pub struct RetryExecutor {
+pub(crate) struct RetryExecutor {
     pub(crate) policy: RetryPolicy,
     pub(crate) circuit_breaker: CircuitBreaker,
 }
@@ -371,15 +362,5 @@ impl RetryExecutor {
         // Add jitter to prevent thundering herd
         let jitter = fastrand::f64() * 0.1; // Up to 10% jitter
         Duration::from_secs_f64(delay.as_secs_f64() * (1.0 + jitter))
-    }
-}
-
-/// Extract retry-after duration from HTTP headers or error response
-pub fn extract_retry_after_duration(error: &LlmError) -> Option<Duration> {
-    match error {
-        LlmError::RateLimitExceeded {
-            retry_after_seconds,
-        } => Some(Duration::from_secs(*retry_after_seconds)),
-        _ => None,
     }
 }

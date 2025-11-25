@@ -272,7 +272,7 @@ Contributions welcome! Before contributing:
 2. Review [Architecture Decision Records](docs/adr/)
 3. Follow established patterns
 4. Add tests for new functionality
-5. Use `log_*!` macros for logging (not `println!`)
+5. No `println!` in library code - use internal logging macros
 
 See [Appendix D: Contributing](docs/DESIGN.md#appendix-d-contributing) for detailed guidelines.
 

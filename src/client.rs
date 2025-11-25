@@ -6,7 +6,7 @@ use crate::core_types::{
     provider::{LlmProvider, RequestConfig, Response, ToolCallingRound},
 };
 use crate::error::{LlmError, LlmResult};
-use crate::log_debug;
+use crate::logging::log_debug;
 use crate::providers::{AnthropicProvider, LMStudioProvider, OllamaProvider, OpenAIProvider};
 use async_trait::async_trait;
 

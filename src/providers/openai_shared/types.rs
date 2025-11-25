@@ -2,7 +2,7 @@
 //!
 //! Contains the request/response structures used by OpenAI-compatible providers.
 
-use crate::types::LLMUsage;
+use crate::core_types::TokenUsage;
 use serde::{Deserialize, Serialize};
 
 /// OpenAI-compatible message structure
@@ -104,7 +104,7 @@ pub struct OpenAIUsage {
     pub total_tokens: u32,
 }
 
-impl From<OpenAIUsage> for LLMUsage {
+impl From<OpenAIUsage> for TokenUsage {
     fn from(usage: OpenAIUsage) -> Self {
         Self {
             prompt_tokens: usage.prompt_tokens,

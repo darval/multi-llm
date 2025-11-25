@@ -13,8 +13,8 @@ use crate::core_types::provider::{
     LlmProvider, RequestConfig, Response, ResponseFormat, ToolCallingRound,
 };
 use crate::error::{LlmError, LlmResult};
+use crate::logging::{log_debug, log_error, log_warn};
 use crate::retry::RetryExecutor;
-use crate::{log_debug, log_error, log_warn};
 
 #[cfg(feature = "events")]
 use crate::core_types::event_types;

@@ -9,7 +9,7 @@
 use super::types::*;
 use crate::core_types::provider::{RequestConfig, Tool, ToolCall, ToolChoice};
 use crate::error::{LlmError, LlmResult};
-use crate::log_error;
+use crate::logging::log_error;
 use crate::retry::{RetryExecutor, RetryPolicy};
 use crate::{MessageContent, MessageRole, UnifiedMessage};
 use regex::Regex;

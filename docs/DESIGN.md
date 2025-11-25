@@ -2,7 +2,7 @@
 
 > **Version**: 1.0
 > **Status**: Living Document
-> **Last Updated**: 2025-11-22
+> **Last Updated**: 2025-11-25
 
 ## Table of Contents
 
@@ -460,6 +460,7 @@ All providers must follow these patterns:
    - Unit tests for error handling
    - Integration tests for full request/response cycle (can be `#[ignore]` if requires external service)
 5. **No Panics**: Return `Result` everywhere; never `unwrap()`, `expect()`, or `unreachable!()`
+6. **No println!**: Use internal `log_*!` macros (available via `crate::logging`)
 
 ### Provider-Specific Features
 
@@ -502,7 +503,7 @@ All providers must follow these patterns:
 
 | Tier | Stability | Examples | Breaking Changes |
 |------|-----------|----------|------------------|
-| **Public API** | Locked after 1.0 | `LlmProvider` trait, `Message`, `Response`, `LlmError` | Requires major version bump |
+| **Public API** | Locked after 1.0 | `LlmProvider` trait, `UnifiedMessage`, `Response`, `LlmError` | Requires major version bump |
 | **Public Config** | Stable | Provider config structs, `RequestConfig` | Minor version if additive only |
 | **Internal** | Unstable | Provider implementations, conversions, retry logic | Can change freely in any version |
 
@@ -510,41 +511,63 @@ All providers must follow these patterns:
 
 **Philosophy**: Only expose what users need directly. Keep internals private.
 
-**Public exports from `lib.rs`**:
+**Public exports from `lib.rs`** (~28 types):
 
 ```rust
-// Core types
-pub use messages::{Message, MessageRole, MessageContent, MessageAttributes};
-pub use provider::LlmProvider;
-pub use response::{Response, TokenUsage, FinishReason};
-pub use error::LlmError;
+// Client
+pub use client::UnifiedLLMClient;
 
-// Request/Config types
-pub use config::{
-    Request, RequestConfig,
-    Tool, ToolChoice, ToolCall, ToolResult,
-    ResponseFormat,
+// Core message types
+pub use core_types::{
+    UnifiedMessage, MessageRole, MessageContent, MessageAttributes, MessageCategory,
 };
+
+// Request/Response types
+pub use core_types::{
+    UnifiedLLMRequest, RequestConfig, Response, TokenUsage,
+};
+
+// Tool types
+pub use core_types::{
+    Tool, ToolCall, ToolChoice, ToolResult, ResponseFormat,
+};
+
+// Provider trait
+pub use core_types::LlmProvider;
+
+// Error types
+pub use error::{LlmError, LlmResult};
 
 // Provider configs (for construction)
 pub use config::{
-    OpenAIConfig, AnthropicConfig, OllamaConfig, LMStudioConfig,
+    LLMConfig, OpenAIConfig, AnthropicConfig, OllamaConfig, LMStudioConfig,
+    DefaultLLMParams, DualLLMConfig, LLMPath, ProviderConfig,
 };
-
-// Events (feature-gated)
-#[cfg(feature = "events")]
-pub use events::{BusinessEvent, EventScope};
 
 // Provider implementations (for construction only)
 pub use providers::{
     OpenAIProvider, AnthropicProvider, OllamaProvider, LMStudioProvider,
 };
+
+// Token counting
+pub use tokens::{
+    TokenCounter, TokenCounterFactory, AnthropicTokenCounter, OpenAITokenCounter,
+};
+
+// Retry configuration
+pub use retry::RetryPolicy;
+
+// Events (feature-gated)
+#[cfg(feature = "events")]
+pub use core_types::{BusinessEvent, EventScope, LLMBusinessEvent, event_types};
 ```
 
 **NOT exported** (internal implementation details):
-- `retry` module
-- `tokens` module
-- `response_parser` module
+- `logging` module - internal tracing macros
+- `response_parser` module - internal parsing logic
+- `retry` internals - `CircuitBreaker`, `CircuitState`, `RetryExecutor`
+- Error classification - `ErrorCategory`, `ErrorSeverity`, `UserErrorCategory`
+- Internal types - `ToolCallingRound`
 - Provider conversion modules
 - HTTP client utilities
 
@@ -1144,4 +1167,4 @@ For detailed contribution guidelines, see [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 **Document Maintenance**: This document should be updated when making architectural changes. Create new ADRs for new major decisions. Keep examples up-to-date with actual API.
 
-**Last Reviewed**: 2025-11-22
+**Last Reviewed**: 2025-11-25

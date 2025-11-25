@@ -16,8 +16,8 @@ use crate::core_types::provider::{
     LlmProvider, RequestConfig, Response, TokenUsage, ToolCallingRound,
 };
 use crate::error::{LlmError, LlmResult};
+use crate::logging::{log_debug, log_error};
 use crate::response_parser::ResponseParser;
-use crate::{log_debug, log_error};
 
 #[cfg(feature = "events")]
 use crate::core_types::event_types;

@@ -1,5 +1,5 @@
 use crate::error::{LlmError, LlmResult};
-use crate::{log_debug, log_warn};
+use crate::logging::{log_debug, log_warn};
 
 use std::sync::Arc;
 use tiktoken_rs::{cl100k_base, o200k_base, CoreBPE};

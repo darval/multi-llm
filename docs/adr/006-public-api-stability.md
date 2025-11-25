@@ -1,7 +1,7 @@
 # ADR-006: Public API Stability and Surface Area
 
-**Status**: Accepted
-**Date**: 2025-11-22
+**Status**: Implemented
+**Date**: 2025-11-22 (Updated: 2025-11-25)
 **Authors**: multi-llm team
 **Deciders**: Rick Duff
 
@@ -9,8 +9,8 @@
 
 The library was extracted from a larger application (`myStory`) and carries legacy design choices. The current public API surface is too broad, exposing many internal types and using legacy naming from the parent project.
 
-**Current problems**:
-1. **Too many public exports**: `lib.rs` re-exports 28+ types, many internal
+**Current problems** (pre-implementation):
+1. **Too many public exports**: `lib.rs` re-exports 45+ types, many internal
 2. **Legacy naming**: `ExecutorLLMProvider`, `ExecutorLLMConfig`, `MyStoryError`
 3. **No clear boundaries**: Everything is `pub mod`, internals exposed
 4. **Duplicate types**: `LLMToolCall` vs `ExecutorToolCall`, `LLMUsage` vs `ExecutorTokenUsage`
@@ -29,7 +29,7 @@ The library was extracted from a larger application (`myStory`) and carries lega
 
 ## Decision
 
-We will **dramatically narrow the public API** to ~10 core types and remove all legacy naming before 1.0:
+We **narrowed the public API** to ~28 core types and removed legacy naming:
 
 ### Public API (Stable after 1.0)
 
@@ -76,13 +76,14 @@ pub use events::{BusinessEvent, EventType, EventScope};
 ### Internal APIs (Can change freely)
 
 **Not exported** from `lib.rs`:
-- `retry` module - Internal retry logic
-- `tokens` module - Token counting utilities
-- `response_parser` module - Response parsing helpers
+- `logging` module - Internal tracing macros (`pub(crate)`)
+- `response_parser` module - Response parsing helpers (`pub(crate)`)
+- `retry` internals - `CircuitBreaker`, `CircuitState`, `RetryExecutor` (`pub(crate)`)
+- Error classification - `ErrorCategory`, `ErrorSeverity`, `UserErrorCategory`
+- Internal types - `ToolCallingRound`
 - Provider conversion modules - Implementation details
 - HTTP client utilities - Internal plumbing
-- `agents` module - **Removed** (parent project concept)
-- `types` module - **Removed** (duplicates core types)
+- `types` module - **Removed** (duplicates core types: `LLMToolCall`, `LLMUsage`, `LLMRequest`, `LLMMetadata`)
 
 ### Naming Changes
 
@@ -301,13 +302,16 @@ Add to rustdoc:
 
 ### Pre-1.0 Checklist
 
-- [ ] Rename all `Executor*` types
-- [ ] Remove `MyStoryError` trait
-- [ ] Remove `AgentContext`
-- [ ] Remove duplicate types
-- [ ] Hide internals (`retry`, `tokens`, `response_parser`)
-- [ ] Feature-gate events
-- [ ] Update all documentation
+- [x] Rename all `Executor*` types (Issue #1)
+- [x] Remove `MyStoryError` trait (Issue #1)
+- [x] Remove `AgentContext` (Issue #1)
+- [x] Remove duplicate types (Issue #4: `LLMToolCall`, `LLMUsage`, `LLMRequest`, `LLMMetadata`)
+- [x] Hide internals - `response_parser` (`pub(crate)`), `logging` (`pub(crate)`)
+- [x] Hide retry internals - `CircuitBreaker`, `CircuitState`, `RetryExecutor` (`pub(crate)`)
+- [x] Remove error classification from exports - `ErrorCategory`, `ErrorSeverity`, `UserErrorCategory`
+- [x] Remove internal types from exports - `ToolCallingRound`
+- [x] Feature-gate events (Issue #2)
+- [x] Update documentation (DESIGN.md Section 6, ADR-006)
 - [ ] Write migration guide
 - [ ] Update examples
 - [ ] Update integration tests
@@ -320,4 +324,5 @@ Add to rustdoc:
 
 ## Revision History
 
+- 2025-11-25: Marked as Implemented, updated checklist with completed items
 - 2025-11-22: Initial version

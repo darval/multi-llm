@@ -18,7 +18,7 @@ use crate::core_types::provider::{
     LlmProvider, RequestConfig, Response, TokenUsage, ToolCallingRound,
 };
 use crate::error::{LlmError, LlmResult};
-use crate::log_debug;
+use crate::logging::log_debug;
 use crate::response_parser::ResponseParser;
 use std::time::Instant;
 

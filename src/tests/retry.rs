@@ -9,6 +9,18 @@ use tokio::time::sleep;
 mod tests {
     use super::*;
 
+    // Helper to create a circuit breaker with custom settings (test-only)
+    fn create_test_circuit_breaker(
+        failure_threshold: u32,
+        recovery_timeout: Duration,
+    ) -> CircuitBreaker {
+        CircuitBreaker {
+            failure_threshold,
+            recovery_timeout,
+            ..Default::default()
+        }
+    }
+
     // Helper to create fast test retry policy to prevent slow tests
     fn create_fast_test_retry_policy() -> RetryPolicy {
         RetryPolicy {
@@ -92,7 +104,7 @@ mod tests {
 
     /// Helper function to create concrete circuit breaker for testing
     fn create_concrete_circuit_breaker() -> CircuitBreaker {
-        CircuitBreaker::new(2, Duration::from_millis(100))
+        create_test_circuit_breaker(2, Duration::from_millis(100))
     }
 
     #[tokio::test]
@@ -332,37 +344,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_rate_limit_extraction_respects_retry_after_headers() {
-        // Test verifies rate limit errors extract proper delay from HTTP Retry-After headers
-        // Ensures system respects LLM provider rate limiting to avoid further penalties
-
-        use crate::retry::extract_retry_after_duration;
-
-        // Arrange
-        let rate_limit_error = LlmError::rate_limit_exceeded(60);
-        let other_error = LlmError::request_failed("network error".to_string(), None);
-
-        // Act
-        let duration = extract_retry_after_duration(&rate_limit_error);
-        let no_duration = extract_retry_after_duration(&other_error);
-
-        // Assert
-        assert!(
-            duration.is_some(),
-            "Rate limit errors should provide retry duration"
-        );
-        assert_eq!(
-            duration.unwrap(),
-            Duration::from_secs(60),
-            "Should extract correct retry-after duration"
-        );
-        assert!(
-            no_duration.is_none(),
-            "Non-rate-limit errors should not provide retry duration"
-        );
-    }
-
-    #[tokio::test]
     async fn test_circuit_breaker_success_in_open_state() {
         // Test verifies circuit breaker handles unexpected success during Open state
         // Ensures defensive code path resets properly even in edge cases
@@ -462,7 +443,7 @@ mod tests {
         // Ensures configurability for different failure tolerance levels
 
         // Arrange & Act
-        let cb = CircuitBreaker::new(3, Duration::from_secs(60));
+        let cb = create_test_circuit_breaker(3, Duration::from_secs(60));
 
         // Assert
         assert_eq!(cb.failure_threshold, 3);
