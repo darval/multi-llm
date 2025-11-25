@@ -20,8 +20,8 @@
 
 use super::super::types::*;
 use super::super::utils::*;
-use crate::core_types::messages::MessageAttributes;
-use crate::core_types::provider::{RequestConfig, ResponseFormat, Tool, ToolChoice};
+use crate::messages::MessageAttributes;
+use crate::provider::{RequestConfig, ResponseFormat, Tool, ToolChoice};
 use crate::{MessageContent, MessageRole, UnifiedMessage};
 use chrono::Utc;
 use serde_json::json;

@@ -23,7 +23,7 @@ use multi_llm::providers::openai_shared::http::OpenAICompatibleClient;
 use multi_llm::providers::openai_shared::types::{
     OpenAIChoice, OpenAIRequest, OpenAIResponse, OpenAIResponseMessage, OpenAIUsage,
 };
-use multi_llm::retry::RetryPolicy;
+use multi_llm::RetryPolicy;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 

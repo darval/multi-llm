@@ -9,7 +9,7 @@
 //   - Ensures error handling produces consistent error types for same failure scenarios
 
 use crate::Message;
-use crate::core_types::provider::LlmProvider;
+use crate::provider::LlmProvider;
 use serde_json::json;
 use std::sync::Arc;
 use wiremock::matchers::{method, path};

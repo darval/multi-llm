@@ -23,13 +23,12 @@ mod common;
 
 use chrono::Utc;
 use multi_llm::config::{DefaultLLMParams, OllamaConfig};
-use multi_llm::core_types::messages::{
+use multi_llm::messages::{
     MessageAttributes, MessageCategory, MessageContent, MessageRole, UnifiedLLMRequest,
     UnifiedMessage,
 };
-use multi_llm::core_types::provider::LlmProvider;
 use multi_llm::providers::ollama::OllamaProvider;
-use multi_llm::retry::RetryPolicy;
+use multi_llm::{LlmProvider, RetryPolicy};
 use std::collections::HashMap;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};

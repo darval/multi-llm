@@ -9,8 +9,8 @@
 //   - Validates system handles various schema validation modes (strict vs non-strict)
 
 use crate::providers::openai_shared::OpenAIJsonSchema;
-use crate::core_types::provider::Response;
-use crate::core_types::provider::ResponseFormat;
+use crate::provider::Response;
+use crate::provider::ResponseFormat;
 use serde_json::json;
 
 #[cfg(test)]

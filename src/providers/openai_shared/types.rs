@@ -2,7 +2,7 @@
 //!
 //! Contains the request/response structures used by OpenAI-compatible providers.
 
-use crate::core_types::TokenUsage;
+use crate::provider::TokenUsage;
 use serde::{Deserialize, Serialize};
 
 /// OpenAI-compatible message structure

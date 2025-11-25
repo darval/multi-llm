@@ -34,7 +34,7 @@
 #[macro_use]
 mod common;
 use common::*;
-use multi_llm::core_types::provider::LlmProvider;
+use multi_llm::LlmProvider;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 

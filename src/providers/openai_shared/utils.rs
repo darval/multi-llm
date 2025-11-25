@@ -7,10 +7,10 @@
 #![allow(clippy::unwrap_used)]
 
 use super::types::*;
-use crate::core_types::provider::{RequestConfig, Tool, ToolCall, ToolChoice};
 use crate::error::{LlmError, LlmResult};
+use crate::internals::retry::{RetryExecutor, RetryPolicy};
 use crate::logging::log_error;
-use crate::retry::{RetryExecutor, RetryPolicy};
+use crate::provider::{RequestConfig, Tool, ToolCall, ToolChoice};
 use crate::{MessageContent, MessageRole, UnifiedMessage};
 use regex::Regex;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
@@ -800,7 +800,7 @@ fn apply_tools_if_user_llm(request: &mut OpenAIRequest, cfg: &RequestConfig) {
 
 fn apply_tool_choice(
     request: &mut OpenAIRequest,
-    tool_choice: Option<crate::core_types::provider::ToolChoice>,
+    tool_choice: Option<crate::provider::ToolChoice>,
 ) {
     if let Some(choice) = tool_choice {
         request.tool_choice = Some(match choice {
@@ -814,7 +814,7 @@ fn apply_tool_choice(
 
 fn apply_response_format(
     request: &mut OpenAIRequest,
-    response_format: Option<crate::core_types::provider::ResponseFormat>,
+    response_format: Option<crate::provider::ResponseFormat>,
 ) {
     if let Some(format) = response_format {
         request.response_format = Some(OpenAIResponseFormat {

@@ -1,5 +1,5 @@
 use crate::error::LlmError;
-use crate::retry::{CircuitBreaker, CircuitState, RetryExecutor, RetryPolicy};
+use crate::internals::retry::{CircuitBreaker, CircuitState, RetryExecutor, RetryPolicy};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use std::time::Duration;

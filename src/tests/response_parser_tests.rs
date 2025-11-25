@@ -2,7 +2,7 @@
 //!
 //! Testing 3-tier fallback strategy for parsing LLM output into structured JSON.
 
-use crate::response_parser::ResponseParser;
+use crate::internals::response_parser::ResponseParser;
 
 #[test]
 fn test_parse_direct_json() {

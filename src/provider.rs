@@ -3,12 +3,14 @@
 //! Defines the `LlmProvider` trait that all providers implement, along with
 //! request/response types, tool definitions, and configuration.
 
-use crate::core_types::errors::UserErrorCategory;
+use crate::error::UserErrorCategory;
 #[cfg(feature = "events")]
-use crate::core_types::events::{BusinessEvent, EventScope};
-use crate::core_types::messages::{UnifiedLLMRequest, UnifiedMessage};
-use crate::core_types::Result;
+use crate::internals::events::{BusinessEvent, EventScope};
+use crate::messages::{UnifiedLLMRequest, UnifiedMessage};
 use serde::{Deserialize, Serialize};
+
+/// Result type alias for provider operations
+pub type Result<T> = std::result::Result<T, anyhow::Error>;
 
 /// Tool definition for LLM operations
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

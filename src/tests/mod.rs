@@ -9,6 +9,7 @@ pub mod helpers;
 // Core unit tests (template compliant)
 pub mod config;
 pub mod error;
+pub mod messages;
 
 // TODO(#88): Re-enable these test modules after rewriting to fix API changes
 // Temporarily disabled to allow error.rs and config.rs tests to compile and pass

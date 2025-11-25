@@ -17,7 +17,7 @@
 //!   - Tool format conversion (name, description, input_schema)
 
 use super::super::caching::convert_executor_tools_to_anthropic;
-use crate::core_types::provider::Tool;
+use crate::provider::Tool;
 
 // ============================================================================
 // Helper Functions

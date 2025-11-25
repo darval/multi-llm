@@ -7,19 +7,15 @@ use super::openai_shared::{
     http::OpenAICompatibleClient, utils::apply_config_to_request, OpenAIRequest, OpenAIResponse,
 };
 use crate::config::{DefaultLLMParams, OllamaConfig};
-#[cfg(feature = "events")]
-use crate::core_types::event_types;
-#[cfg(feature = "events")]
-use crate::core_types::events::{BusinessEvent, EventScope};
-use crate::core_types::messages::{MessageContent, MessageRole, UnifiedLLMRequest, UnifiedMessage};
-#[cfg(feature = "events")]
-use crate::core_types::provider::LLMBusinessEvent;
-use crate::core_types::provider::{
-    LlmProvider, RequestConfig, Response, TokenUsage, ToolCallingRound,
-};
 use crate::error::{LlmError, LlmResult};
+#[cfg(feature = "events")]
+use crate::internals::events::{event_types, BusinessEvent, EventScope};
+use crate::internals::response_parser::ResponseParser;
 use crate::logging::log_debug;
-use crate::response_parser::ResponseParser;
+use crate::messages::{MessageContent, MessageRole, UnifiedLLMRequest, UnifiedMessage};
+#[cfg(feature = "events")]
+use crate::provider::LLMBusinessEvent;
+use crate::provider::{LlmProvider, RequestConfig, Response, TokenUsage, ToolCallingRound};
 use std::time::Instant;
 
 /// Ollama local provider implementation
@@ -194,7 +190,7 @@ impl OllamaProvider {
         &self,
         request: UnifiedLLMRequest,
         config: Option<RequestConfig>,
-    ) -> crate::core_types::Result<(Response, OpenAIResponse, u64, OpenAIRequest)> {
+    ) -> crate::provider::Result<(Response, OpenAIResponse, u64, OpenAIRequest)> {
         // Create base request and apply config
         let mut openai_request = self.create_base_request(&request);
         if let Some(cfg) = config.as_ref() {
@@ -297,7 +293,7 @@ impl OllamaProvider {
             .tool_calls
             .unwrap_or_default()
             .into_iter()
-            .map(|tc| crate::core_types::provider::ToolCall {
+            .map(|tc| crate::provider::ToolCall {
                 id: tc.id,
                 name: tc.function.name,
                 arguments: serde_json::from_str(&tc.function.arguments)
@@ -351,7 +347,7 @@ impl LlmProvider for OllamaProvider {
         request: UnifiedLLMRequest,
         _current_tool_round: Option<ToolCallingRound>,
         config: Option<RequestConfig>,
-    ) -> crate::core_types::Result<(Response, Vec<LLMBusinessEvent>)> {
+    ) -> crate::provider::Result<(Response, Vec<LLMBusinessEvent>)> {
         let mut events = Vec::new();
 
         // Execute core logic and collect event data
@@ -389,7 +385,7 @@ impl LlmProvider for OllamaProvider {
         request: UnifiedLLMRequest,
         _current_tool_round: Option<ToolCallingRound>,
         config: Option<RequestConfig>,
-    ) -> crate::core_types::Result<Response> {
+    ) -> crate::provider::Result<Response> {
         let (response, _api_response, _duration_ms, _openai_request) =
             self.execute_llm_internal(request, config).await?;
         Ok(response)
@@ -402,7 +398,7 @@ impl LlmProvider for OllamaProvider {
         current_tool_round: Option<ToolCallingRound>,
         schema: serde_json::Value,
         config: Option<RequestConfig>,
-    ) -> crate::core_types::Result<(Response, Vec<LLMBusinessEvent>)> {
+    ) -> crate::provider::Result<(Response, Vec<LLMBusinessEvent>)> {
         // Set the schema in the request
         request.response_schema = Some(schema);
 
@@ -417,7 +413,7 @@ impl LlmProvider for OllamaProvider {
         current_tool_round: Option<ToolCallingRound>,
         schema: serde_json::Value,
         config: Option<RequestConfig>,
-    ) -> crate::core_types::Result<Response> {
+    ) -> crate::provider::Result<Response> {
         // Set the schema in the request
         request.response_schema = Some(schema);
 

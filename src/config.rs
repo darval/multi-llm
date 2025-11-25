@@ -1,6 +1,6 @@
 use crate::error::{LlmError, LlmResult};
+use crate::internals::retry::RetryPolicy;
 use crate::logging::log_debug;
-use crate::retry::RetryPolicy;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::fmt::Debug;

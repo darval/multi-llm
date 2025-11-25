@@ -39,55 +39,66 @@
 // Allow unreachable in provider clone - all types are covered but compiler can't verify
 #![allow(clippy::unreachable)]
 
-// Core types for unified LLM abstraction
-// Phase 2 will refactor these into proper public API modules
-pub mod core_types;
+// =============================================================================
+// Module declarations
+// =============================================================================
 
-// Logging utilities (re-exports tracing with log_* naming) - internal only
-pub(crate) mod logging;
-
+// Public modules - flattened structure matching DESIGN.md
 pub mod client;
 pub mod config;
 pub mod error;
+pub mod messages;
+pub mod provider;
 pub mod providers;
-pub(crate) mod response_parser;
-pub mod retry;
-pub mod tokens;
+
+// Internal modules
+pub(crate) mod internals;
+pub(crate) mod logging;
 
 #[cfg(test)]
 pub mod tests;
 
-// Re-export main types
+// =============================================================================
+// Public API re-exports (~28 types as per issue #4)
+// =============================================================================
+
+// Client
 pub use client::UnifiedLLMClient;
+
+// Configuration
 pub use config::{
     AnthropicConfig, DefaultLLMParams, DualLLMConfig, LLMConfig, LLMPath, LMStudioConfig,
     OllamaConfig, OpenAIConfig, ProviderConfig,
 };
-pub use error::{LlmError, LlmResult};
-pub use providers::{AnthropicProvider, LMStudioProvider, OllamaProvider, OpenAIProvider};
-pub use tokens::{AnthropicTokenCounter, OpenAITokenCounter, TokenCounter, TokenCounterFactory};
 
-// Re-export core types (unified messages and provider types)
-pub use core_types::{
-    // Provider trait
-    LlmProvider,
-    // Messages - the core unified message architecture
-    MessageAttributes,
-    MessageCategory,
-    MessageContent,
-    MessageRole,
-    RequestConfig,
-    Response,
-    ResponseFormat,
-    TokenUsage,
-    Tool,
-    ToolCall,
-    ToolChoice,
-    ToolResult,
-    UnifiedLLMRequest,
+// Errors
+pub use error::{LlmError, LlmResult};
+
+// Messages - the core unified message architecture
+pub use messages::{
+    MessageAttributes, MessageCategory, MessageContent, MessageRole, UnifiedLLMRequest,
     UnifiedMessage,
 };
 
+// Provider trait and types
+pub use provider::{
+    LlmProvider, RequestConfig, Response, ResponseFormat, TokenUsage, Tool, ToolCall, ToolChoice,
+    ToolResult,
+};
+
+// Providers
+pub use providers::{AnthropicProvider, LMStudioProvider, OllamaProvider, OpenAIProvider};
+
+// Token counting (from internals, re-exported for public use)
+pub use internals::tokens::{
+    AnthropicTokenCounter, OpenAITokenCounter, TokenCounter, TokenCounterFactory,
+};
+
+// Retry policy (from internals, re-exported for public use)
+pub use internals::retry::RetryPolicy;
+
 // Event types - only available with "events" feature
 #[cfg(feature = "events")]
-pub use core_types::{event_types, BusinessEvent, EventScope, LLMBusinessEvent};
+pub use internals::events::{event_types, BusinessEvent, EventScope};
+#[cfg(feature = "events")]
+pub use provider::LLMBusinessEvent;

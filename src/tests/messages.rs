@@ -13,7 +13,7 @@
 //!   - Builder methods are chainable and preserve message data
 //!   - Edge cases: builder methods on messages with different roles and content types
 
-use super::super::messages::{CacheType, MessageRole, UnifiedMessage};
+use crate::messages::{CacheType, MessageRole, UnifiedMessage};
 
 // ============================================================================
 // CacheType Enum Tests
@@ -104,7 +104,7 @@ fn test_with_ephemeral_cache_preserves_message_content() {
 
     // Assert
     match cached_message.content {
-        crate::core_types::messages::MessageContent::Text(ref text) => {
+        crate::messages::MessageContent::Text(ref text) => {
             assert_eq!(text, original_content, "Content should be preserved");
         }
         _ => panic!("Expected text content"),
@@ -190,7 +190,7 @@ fn test_with_extended_cache_preserves_message_content() {
 
     // Assert
     match cached_message.content {
-        crate::core_types::messages::MessageContent::Text(ref text) => {
+        crate::messages::MessageContent::Text(ref text) => {
             assert_eq!(text, original_content, "Content should be preserved");
         }
         _ => panic!("Expected text content"),

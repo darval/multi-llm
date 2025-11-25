@@ -9,7 +9,7 @@
 //   - Validates robust error handling for malformed responses and network timeouts
 
 use super::helpers::*;
-use crate::core_types::provider::LlmProvider;
+use crate::provider::LlmProvider;
 use serde_json::json;
 use std::time::Duration;
 use wiremock::matchers::{method, path};

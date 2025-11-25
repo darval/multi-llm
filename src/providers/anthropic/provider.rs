@@ -4,20 +4,15 @@ use super::caching;
 use super::conversion;
 use super::types::{AnthropicContentBlock, AnthropicRequest, AnthropicResponse, SystemField};
 use crate::config::{AnthropicConfig, DefaultLLMParams};
-#[cfg(feature = "events")]
-use crate::core_types::events::{BusinessEvent, EventScope};
-use crate::core_types::messages::UnifiedLLMRequest;
-#[cfg(feature = "events")]
-use crate::core_types::provider::LLMBusinessEvent;
-use crate::core_types::provider::{
-    LlmProvider, RequestConfig, Response, ResponseFormat, ToolCallingRound,
-};
 use crate::error::{LlmError, LlmResult};
-use crate::logging::{log_debug, log_error, log_warn};
-use crate::retry::RetryExecutor;
-
 #[cfg(feature = "events")]
-use crate::core_types::event_types;
+use crate::internals::events::{event_types, BusinessEvent, EventScope};
+use crate::internals::retry::RetryExecutor;
+use crate::logging::{log_debug, log_error, log_warn};
+use crate::messages::UnifiedLLMRequest;
+#[cfg(feature = "events")]
+use crate::provider::LLMBusinessEvent;
+use crate::provider::{LlmProvider, RequestConfig, Response, ResponseFormat, ToolCallingRound};
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
 use std::time::Instant;
 use tokio::sync::Mutex;
@@ -294,13 +289,13 @@ impl AnthropicProvider {
         api_response: AnthropicResponse,
         response_format: Option<ResponseFormat>,
         config: Option<RequestConfig>,
-    ) -> crate::core_types::Result<Response> {
+    ) -> crate::provider::Result<Response> {
         let (content, tool_calls) = self.extract_content_and_tools(&api_response);
         let usage = self.create_usage_stats(&api_response, config.as_ref());
         let (final_content, structured_response) =
             self.parse_structured_response(content, &tool_calls, response_format);
 
-        Ok(crate::core_types::provider::Response {
+        Ok(crate::provider::Response {
             content: final_content,
             structured_response,
             tool_calls,
@@ -313,7 +308,7 @@ impl AnthropicProvider {
     fn extract_content_and_tools(
         &self,
         api_response: &AnthropicResponse,
-    ) -> (String, Vec<crate::core_types::provider::ToolCall>) {
+    ) -> (String, Vec<crate::provider::ToolCall>) {
         let mut content = String::new();
         let mut tool_calls = Vec::new();
 
@@ -326,7 +321,7 @@ impl AnthropicProvider {
                     content.push_str(text);
                 }
                 AnthropicContentBlock::ToolUse { id, name, input } => {
-                    tool_calls.push(crate::core_types::provider::ToolCall {
+                    tool_calls.push(crate::provider::ToolCall {
                         id: id.clone(),
                         name: name.clone(),
                         arguments: input.clone(),
@@ -343,7 +338,7 @@ impl AnthropicProvider {
         &self,
         api_response: &AnthropicResponse,
         config: Option<&RequestConfig>,
-    ) -> crate::core_types::provider::TokenUsage {
+    ) -> crate::provider::TokenUsage {
         let cache_creation_tokens = api_response.usage.cache_creation_input_tokens.unwrap_or(0);
         let cache_read_tokens = api_response.usage.cache_read_input_tokens.unwrap_or(0);
         let total_tokens_with_cache = api_response.usage.input_tokens
@@ -355,7 +350,7 @@ impl AnthropicProvider {
             self.log_cache_usage(api_response, config);
         }
 
-        crate::core_types::provider::TokenUsage {
+        crate::provider::TokenUsage {
             prompt_tokens: api_response.usage.input_tokens,
             completion_tokens: api_response.usage.output_tokens,
             total_tokens: total_tokens_with_cache,
@@ -398,7 +393,7 @@ impl AnthropicProvider {
     fn parse_structured_response(
         &self,
         content: String,
-        tool_calls: &[crate::core_types::provider::ToolCall],
+        tool_calls: &[crate::provider::ToolCall],
         response_format: Option<ResponseFormat>,
     ) -> (String, Option<serde_json::Value>) {
         if response_format.is_none() {
@@ -555,7 +550,7 @@ impl AnthropicProvider {
         &self,
         request: UnifiedLLMRequest,
         config: Option<RequestConfig>,
-    ) -> crate::core_types::Result<(Response, AnthropicResponse, u64, AnthropicRequest)> {
+    ) -> crate::provider::Result<(Response, AnthropicResponse, u64, AnthropicRequest)> {
         // Determine caching and create base request
         let enable_caching = self.should_enable_caching(config.as_ref());
         let mut anthropic_request = self.create_base_request(&request, enable_caching);
@@ -695,7 +690,7 @@ impl LlmProvider for AnthropicProvider {
         request: UnifiedLLMRequest,
         _current_tool_round: Option<ToolCallingRound>,
         config: Option<RequestConfig>,
-    ) -> crate::core_types::Result<(Response, Vec<LLMBusinessEvent>)> {
+    ) -> crate::provider::Result<(Response, Vec<LLMBusinessEvent>)> {
         let mut events = Vec::new();
 
         // Execute core logic and collect event data
@@ -733,7 +728,7 @@ impl LlmProvider for AnthropicProvider {
         request: UnifiedLLMRequest,
         _current_tool_round: Option<ToolCallingRound>,
         config: Option<RequestConfig>,
-    ) -> crate::core_types::Result<Response> {
+    ) -> crate::provider::Result<Response> {
         // Simple wrapper - just return the response
         let (response, _api_response, _duration_ms, _anthropic_request) =
             self.execute_llm_internal(request, config).await?;
@@ -747,7 +742,7 @@ impl LlmProvider for AnthropicProvider {
         current_tool_round: Option<ToolCallingRound>,
         schema: serde_json::Value,
         config: Option<RequestConfig>,
-    ) -> crate::core_types::Result<(Response, Vec<LLMBusinessEvent>)> {
+    ) -> crate::provider::Result<(Response, Vec<LLMBusinessEvent>)> {
         // Set the schema in the request
         request.response_schema = Some(schema);
 
@@ -762,7 +757,7 @@ impl LlmProvider for AnthropicProvider {
         current_tool_round: Option<ToolCallingRound>,
         schema: serde_json::Value,
         config: Option<RequestConfig>,
-    ) -> crate::core_types::Result<Response> {
+    ) -> crate::provider::Result<Response> {
         // Set the schema in the request
         request.response_schema = Some(schema);
 

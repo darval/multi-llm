@@ -1,12 +1,10 @@
 use crate::config::{AnthropicConfig, LLMConfig, LMStudioConfig, OllamaConfig, OpenAIConfig};
-#[cfg(feature = "events")]
-use crate::core_types::provider::LLMBusinessEvent;
-use crate::core_types::{
-    messages::UnifiedLLMRequest,
-    provider::{LlmProvider, RequestConfig, Response, ToolCallingRound},
-};
 use crate::error::{LlmError, LlmResult};
 use crate::logging::log_debug;
+use crate::messages::UnifiedLLMRequest;
+#[cfg(feature = "events")]
+use crate::provider::LLMBusinessEvent;
+use crate::provider::{LlmProvider, RequestConfig, Response, ToolCallingRound};
 use crate::providers::{AnthropicProvider, LMStudioProvider, OllamaProvider, OpenAIProvider};
 use async_trait::async_trait;
 
@@ -180,7 +178,7 @@ impl LlmProvider for UnifiedLLMClient {
         request: UnifiedLLMRequest,
         current_tool_round: Option<ToolCallingRound>,
         config: Option<RequestConfig>,
-    ) -> crate::core_types::Result<(Response, Vec<LLMBusinessEvent>)> {
+    ) -> crate::provider::Result<(Response, Vec<LLMBusinessEvent>)> {
         // Restore default retry policy
         match &self.provider {
             LLMProvider::Anthropic(p) => p.restore_default_retry_policy().await,
@@ -204,7 +202,7 @@ impl LlmProvider for UnifiedLLMClient {
         request: UnifiedLLMRequest,
         current_tool_round: Option<ToolCallingRound>,
         config: Option<RequestConfig>,
-    ) -> crate::core_types::Result<Response> {
+    ) -> crate::provider::Result<Response> {
         // Restore default retry policy
         match &self.provider {
             LLMProvider::Anthropic(p) => p.restore_default_retry_policy().await,
@@ -229,7 +227,7 @@ impl LlmProvider for UnifiedLLMClient {
         current_tool_round: Option<ToolCallingRound>,
         schema: serde_json::Value,
         config: Option<RequestConfig>,
-    ) -> crate::core_types::Result<(Response, Vec<LLMBusinessEvent>)> {
+    ) -> crate::provider::Result<(Response, Vec<LLMBusinessEvent>)> {
         // Restore default retry policy
         match &self.provider {
             LLMProvider::Anthropic(p) => p.restore_default_retry_policy().await,
@@ -266,7 +264,7 @@ impl LlmProvider for UnifiedLLMClient {
         current_tool_round: Option<ToolCallingRound>,
         schema: serde_json::Value,
         config: Option<RequestConfig>,
-    ) -> crate::core_types::Result<Response> {
+    ) -> crate::provider::Result<Response> {
         // Restore default retry policy
         match &self.provider {
             LLMProvider::Anthropic(p) => p.restore_default_retry_policy().await,

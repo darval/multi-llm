@@ -8,11 +8,11 @@
 use crate::config::{
     AnthropicConfig, DefaultLLMParams, LLMConfig, LMStudioConfig, OllamaConfig, OpenAIConfig,
 };
-use crate::core_types::messages::{MessageContent, MessageRole, UnifiedLLMRequest, UnifiedMessage};
-use crate::core_types::provider::{RequestConfig, Tool};
+use crate::internals::retry::RetryPolicy;
+use crate::internals::tokens::{AnthropicTokenCounter, OpenAITokenCounter, TokenCounter};
+use crate::messages::{MessageContent, MessageRole, UnifiedLLMRequest, UnifiedMessage};
+use crate::provider::{RequestConfig, Tool};
 use crate::providers::{AnthropicProvider, LMStudioProvider, OllamaProvider, OpenAIProvider};
-use crate::retry::RetryPolicy;
-use crate::tokens::{AnthropicTokenCounter, OpenAITokenCounter, TokenCounter};
 use chrono::Utc;
 use std::sync::Arc;
 use std::time::Duration;
@@ -126,7 +126,7 @@ pub fn create_test_token_counter_with_limit(
     provider_name: &str,
     max_tokens: u32,
 ) -> Arc<dyn TokenCounter> {
-    use crate::tokens::TokenCounterFactory;
+    use crate::internals::tokens::TokenCounterFactory;
 
     let model = match provider_name {
         "anthropic" => "claude-3-5-sonnet-20241022",

@@ -10,7 +10,7 @@
 
 use super::helpers::*;
 use crate::Message;
-use crate::core_types::provider::LlmProvider;
+use crate::provider::LlmProvider;
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 

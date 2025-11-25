@@ -9,7 +9,7 @@
 //   - Validates provider identification and capability reporting
 
 use super::helpers::*;
-use crate::core_types::provider::LlmProvider;
+use crate::provider::LlmProvider;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 

@@ -1,6 +1,6 @@
 //! Caching control logic for Anthropic prompt caching
 
-use crate::core_types::provider::Tool;
+use crate::provider::Tool;
 use serde_json::Value;
 
 /// Convert executor tools to Anthropic format with caching support

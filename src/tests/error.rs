@@ -17,8 +17,7 @@
 //   - Automatic logging with structured fields for observability
 //   - Error constructor functions with proper context preservation
 
-use crate::core_types::{ErrorCategory, ErrorSeverity};
-use crate::error::LlmError;
+use crate::error::{ErrorCategory, ErrorSeverity, LlmError};
 
 #[cfg(test)]
 mod llm_error_categorization_tests {

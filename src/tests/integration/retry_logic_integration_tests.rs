@@ -9,7 +9,7 @@
 //   - Verifies system stability during API failures and recovery scenarios
 
 use super::helpers::*;
-use crate::core_types::provider::LlmProvider;
+use crate::provider::LlmProvider;
 use std::time::Duration;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};

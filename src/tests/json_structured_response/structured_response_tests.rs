@@ -14,8 +14,7 @@
 //   - Edge cases: empty responses, missing structured data
 
 use super::helpers::*;
-use crate::core_types::provider::ResponseFormat;
-use crate::core_types::provider::{Response, TokenUsage};
+use crate::provider::{Response, ResponseFormat, TokenUsage};
 use serde_json::json;
 
 #[cfg(test)]

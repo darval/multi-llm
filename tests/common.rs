@@ -30,13 +30,11 @@ use chrono::Utc;
 use multi_llm::config::{
     AnthropicConfig, DefaultLLMParams, LLMConfig, LMStudioConfig, OllamaConfig, OpenAIConfig,
 };
-use multi_llm::core_types::messages::{
-    MessageContent, MessageRole, UnifiedLLMRequest, UnifiedMessage,
+use multi_llm::{
+    AnthropicProvider, AnthropicTokenCounter, LMStudioProvider, MessageContent, MessageRole,
+    OllamaProvider, OpenAIProvider, OpenAITokenCounter, RequestConfig, RetryPolicy, TokenCounter,
+    Tool, UnifiedLLMRequest, UnifiedMessage,
 };
-use multi_llm::core_types::provider::{RequestConfig, Tool};
-use multi_llm::providers::{AnthropicProvider, LMStudioProvider, OllamaProvider, OpenAIProvider};
-use multi_llm::retry::RetryPolicy;
-use multi_llm::tokens::{AnthropicTokenCounter, OpenAITokenCounter, TokenCounter};
 use std::sync::Arc;
 use std::time::Duration;
 use wiremock::ResponseTemplate;
@@ -149,7 +147,7 @@ pub fn create_test_token_counter_with_limit(
     provider_name: &str,
     max_tokens: u32,
 ) -> Arc<dyn TokenCounter> {
-    use multi_llm::tokens::TokenCounterFactory;
+    use multi_llm::TokenCounterFactory;
 
     let model = match provider_name {
         "anthropic" => "claude-3-5-sonnet-20241022",

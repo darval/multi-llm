@@ -20,7 +20,7 @@
 
 // Integration tests need to import from the crate
 use multi_llm::error::LlmError;
-use multi_llm::tokens::{AnthropicTokenCounter, OpenAITokenCounter};
+use multi_llm::{AnthropicTokenCounter, OpenAITokenCounter};
 
 /// Helper function to create concrete OpenAI token counter for testing
 fn create_concrete_openai_counter() -> OpenAITokenCounter {
@@ -49,7 +49,7 @@ fn create_test_messages() -> Vec<serde_json::Value> {
 #[cfg(test)]
 mod openai_token_counter_tests {
     use super::*;
-    use multi_llm::tokens::TokenCounter;
+    use multi_llm::TokenCounter;
 
     #[test]
     fn test_token_counting_accuracy_for_simple_text() {
@@ -564,7 +564,7 @@ mod openai_token_counter_tests {
 #[cfg(test)]
 mod anthropic_token_counter_tests {
     use super::*;
-    use multi_llm::tokens::TokenCounter;
+    use multi_llm::TokenCounter;
 
     #[test]
     fn test_anthropic_token_counting_with_approximation_factor() {
@@ -838,7 +838,7 @@ mod anthropic_token_counter_tests {
 #[cfg(test)]
 mod token_counter_factory_tests {
     use super::*;
-    use multi_llm::tokens::TokenCounterFactory;
+    use multi_llm::TokenCounterFactory;
 
     #[test]
     fn test_factory_creates_correct_counter_types() {
@@ -1003,7 +1003,7 @@ mod token_counter_factory_tests {
 #[cfg(test)]
 mod token_management_integration_tests {
     use super::*;
-    use multi_llm::tokens::TokenCounter;
+    use multi_llm::TokenCounter;
 
     #[test]
     fn test_comprehensive_workflow_from_text_to_validation() {

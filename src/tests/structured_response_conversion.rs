@@ -17,7 +17,7 @@
 //!   - Metadata preservation during structured response conversion
 //!   - JSON schema validation failure scenarios and error reporting
 
-use crate::core_types::provider::{Response, TokenUsage};
+use crate::provider::{Response, TokenUsage};
 // Note: Structured response types no longer needed since we work with JSON directly
 use serde_json::json;
 

@@ -28,7 +28,7 @@ use crate::tests::helpers::create_test_config;
 #[cfg(test)]
 mod factory_method_tests {
     use super::*;
-    use crate::core_types::provider::LlmProvider;
+    use crate::provider::LlmProvider;
 
     #[test]
     fn test_from_config_with_anthropic() {
@@ -285,7 +285,7 @@ mod factory_method_tests {
 #[cfg(test)]
 mod provider_name_tests {
     use super::*;
-    use crate::core_types::provider::LlmProvider;
+    use crate::provider::LlmProvider;
 
     #[test]
     fn test_anthropic_client_returns_correct_provider_name() {

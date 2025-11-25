@@ -4,8 +4,7 @@
 //! These helpers support story analysis schema creation and test response generation.
 
 use crate::providers::openai_shared::OpenAIRequest;
-use crate::core_types::provider::ResponseFormat;
-use crate::core_types::provider::{Response, TokenUsage};
+use crate::provider::{Response, ResponseFormat, TokenUsage};
 use serde_json::json;
 
 /// Create a test schema for story emotional analysis
