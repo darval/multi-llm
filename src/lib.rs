@@ -67,8 +67,8 @@ pub use client::UnifiedLLMClient;
 
 // Configuration
 pub use config::{
-    AnthropicConfig, DefaultLLMParams, DualLLMConfig, LLMConfig, LLMPath, LMStudioConfig,
-    OllamaConfig, OpenAIConfig, ProviderConfig,
+    AnthropicConfig, DefaultLLMParams, LLMConfig, LMStudioConfig, OllamaConfig, OpenAIConfig,
+    ProviderConfig,
 };
 
 // Errors

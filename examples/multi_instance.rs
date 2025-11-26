@@ -2,7 +2,7 @@
 //!
 //! This example shows how to:
 //! - Create multiple independent LLM clients
-//! - Use DualLLMConfig for user-facing vs background processing
+//! - Use HashMap<String, LLMConfig> for flexible multi-config management
 //! - Run parallel requests to different models
 //! - Mix providers (e.g., Anthropic for quality, local for speed)
 //!
@@ -20,9 +20,10 @@
 //! - **Parallel Processing**: Multiple simultaneous requests to same/different providers
 
 use multi_llm::{
-    unwrap_response, AnthropicConfig, DefaultLLMParams, DualLLMConfig, LLMConfig, LLMPath,
-    LlmProvider, OllamaConfig, UnifiedLLMClient, UnifiedLLMRequest, UnifiedMessage,
+    unwrap_response, AnthropicConfig, DefaultLLMParams, LLMConfig, LlmProvider, OllamaConfig,
+    UnifiedLLMClient, UnifiedLLMRequest, UnifiedMessage,
 };
+use std::collections::HashMap;
 use std::time::Instant;
 
 /// Create an Anthropic configuration (high quality)
@@ -79,16 +80,20 @@ fn create_ollama_config() -> Option<LLMConfig> {
     })
 }
 
-/// Demonstrates using DualLLMConfig for user vs NLP paths
+/// Demonstrates using HashMap<String, LLMConfig> for user vs NLP paths
 async fn demo_dual_config() -> anyhow::Result<()> {
-    println!("=== Demo 1: DualLLMConfig (User vs NLP paths) ===\n");
+    println!("=== Demo 1: Named Configs (User vs NLP paths) ===\n");
 
-    // Create dual config: Sonnet for user-facing, Haiku for background NLP
-    let dual_config = DualLLMConfig::new(create_anthropic_config(), create_haiku_config());
+    // Application manages its own config collection with meaningful names
+    let mut configs: HashMap<String, LLMConfig> = HashMap::new();
+    configs.insert("user".to_string(), create_anthropic_config());
+    configs.insert("nlp".to_string(), create_haiku_config());
 
     // Create clients for each path
-    let user_client = UnifiedLLMClient::from_config(dual_config.get_config(LLMPath::User).clone())?;
-    let nlp_client = UnifiedLLMClient::from_config(dual_config.get_config(LLMPath::Nlp).clone())?;
+    let user_client =
+        UnifiedLLMClient::from_config(configs.get("user").expect("user config required").clone())?;
+    let nlp_client =
+        UnifiedLLMClient::from_config(configs.get("nlp").expect("nlp config required").clone())?;
 
     // User-facing request (high quality response)
     let user_request = UnifiedLLMRequest::new(vec![
@@ -284,7 +289,7 @@ async fn main() -> anyhow::Result<()> {
     println!("Multi-Instance LLM Examples\n");
     println!("This demonstrates using multiple LLM instances simultaneously.\n");
 
-    // Demo 1: DualLLMConfig
+    // Demo 1: Named configs with HashMap
     demo_dual_config().await?;
 
     // Demo 2: Parallel requests
@@ -298,7 +303,9 @@ async fn main() -> anyhow::Result<()> {
 
     println!("=== Summary ===\n");
     println!("Key patterns demonstrated:");
-    println!("  1. DualLLMConfig - Separate configs for user-facing vs background");
+    println!(
+        "  1. Named configs - HashMap<String, LLMConfig> for flexible multi-config management"
+    );
     println!("  2. Parallel requests - tokio::join! for concurrent execution");
     println!("  3. Multiple providers - Mix cloud and local models");
     println!("  4. Draft & polish - Fast model for drafts, smart model for refinement");

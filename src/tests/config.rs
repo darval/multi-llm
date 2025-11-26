@@ -16,13 +16,9 @@
 //   - Error handling for unsupported providers and invalid configurations
 //   - Test configuration creation for development and testing scenarios
 
-use crate::config::{
-    AnthropicConfig, DualLLMConfig, LLMConfig, LLMPath, LMStudioConfig, OpenAIConfig,
-    ProviderConfig,
-};
+use crate::config::{AnthropicConfig, LLMConfig, LMStudioConfig, OpenAIConfig, ProviderConfig};
 use crate::error::LlmError;
 use crate::tests::helpers::create_test_config;
-use std::collections::HashMap;
 
 #[cfg(test)]
 mod llm_config_tests {
@@ -735,165 +731,6 @@ mod llm_config_create_provider_tests {
     }
 }
 
-// UNIT UNDER TEST: DualLLMConfig
-//
-// BUSINESS RESPONSIBILITY:
-//   - Manages dual LLM configuration for user and NLP paths
-//   - Routes requests to appropriate LLM based on path
-//   - Validates both configurations are valid
-//   - Supports loading from configuration sections
-//
-// TEST COVERAGE:
-//   - Dual configuration creation and routing
-//   - Validation of both configurations
-//   - Configuration section parsing
-//   - Error handling for invalid configurations
-
-#[cfg(test)]
-mod dual_llm_config_tests {
-    use super::*;
-
-    #[test]
-    fn test_dual_config_creation() {
-        // Test verifies dual configuration creation
-        // Ensures both user and NLP configs are properly stored
-
-        // Arrange
-        let user_config = create_test_config("anthropic");
-        let nlp_config = create_test_config("openai");
-
-        // Act
-        let dual_config = DualLLMConfig::new(user_config, nlp_config);
-
-        // Assert
-        assert_eq!(dual_config.user_llm.provider.provider_name(), "anthropic");
-        assert_eq!(dual_config.nlp_llm.provider.provider_name(), "openai");
-    }
-
-    #[test]
-    fn test_dual_config_get_config_user_path() {
-        // Test verifies correct config routing for user path
-        // Ensures user-facing requests use user config
-
-        // Arrange
-        let user_config = create_test_config("anthropic");
-        let nlp_config = create_test_config("openai");
-        let dual_config = DualLLMConfig::new(user_config, nlp_config);
-
-        // Act
-        let config = dual_config.get_config(LLMPath::User);
-
-        // Assert
-        assert_eq!(config.provider.provider_name(), "anthropic");
-    }
-
-    #[test]
-    fn test_dual_config_get_config_nlp_path() {
-        // Test verifies correct config routing for NLP path
-        // Ensures background NLP uses NLP config
-
-        // Arrange
-        let user_config = create_test_config("anthropic");
-        let nlp_config = create_test_config("openai");
-        let dual_config = DualLLMConfig::new(user_config, nlp_config);
-
-        // Act
-        let config = dual_config.get_config(LLMPath::Nlp);
-
-        // Assert
-        assert_eq!(config.provider.provider_name(), "openai");
-    }
-
-    #[test]
-    fn test_dual_config_validate_success() {
-        // Test verifies validation succeeds with valid configs
-        // Ensures both configurations are checked
-
-        // Arrange
-        let user_config = create_test_config("anthropic");
-        let nlp_config = create_test_config("openai");
-        let dual_config = DualLLMConfig::new(user_config, nlp_config);
-
-        // Act
-        let result = dual_config.validate();
-
-        // Assert
-        assert!(result.is_ok(), "Should validate with valid configs");
-    }
-
-    #[test]
-    fn test_dual_config_from_sections_success() {
-        // Test verifies configuration loading from sections
-        // Ensures proper parsing of configuration data
-
-        // Arrange
-        let mut user_section = HashMap::new();
-        user_section.insert("provider".to_string(), "anthropic".to_string());
-        user_section.insert("api_key".to_string(), "test-key-1".to_string());
-        user_section.insert("model".to_string(), "claude-3-5-sonnet".to_string());
-
-        let mut nlp_section = HashMap::new();
-        nlp_section.insert("provider".to_string(), "openai".to_string());
-        nlp_section.insert("api_key".to_string(), "test-key-2".to_string());
-        nlp_section.insert("model".to_string(), "gpt-4".to_string());
-
-        // Act
-        let result = DualLLMConfig::from_sections(&user_section, &nlp_section);
-
-        // Assert
-        assert!(result.is_ok(), "Should create config from sections");
-        let config = result.unwrap();
-        assert_eq!(config.user_llm.provider.provider_name(), "anthropic");
-        assert_eq!(config.nlp_llm.provider.provider_name(), "openai");
-    }
-
-    #[test]
-    fn test_dual_config_from_sections_missing_provider() {
-        // Test verifies error handling for missing provider field
-        // Prevents invalid configurations
-
-        // Arrange
-        let mut user_section = HashMap::new();
-        user_section.insert("api_key".to_string(), "test-key".to_string());
-
-        let mut nlp_section = HashMap::new();
-        nlp_section.insert("provider".to_string(), "openai".to_string());
-        nlp_section.insert("api_key".to_string(), "test-key".to_string());
-
-        // Act
-        let result = DualLLMConfig::from_sections(&user_section, &nlp_section);
-
-        // Assert
-        assert!(result.is_err(), "Should fail with missing provider");
-    }
-
-    #[test]
-    fn test_dual_config_from_sections_with_params() {
-        // Test verifies parameter parsing from sections
-        // Ensures optional parameters are properly applied
-
-        // Arrange
-        let mut user_section = HashMap::new();
-        user_section.insert("provider".to_string(), "anthropic".to_string());
-        user_section.insert("api_key".to_string(), "test-key".to_string());
-        user_section.insert("temperature".to_string(), "0.8".to_string());
-        user_section.insert("max_tokens".to_string(), "2000".to_string());
-
-        let mut nlp_section = HashMap::new();
-        nlp_section.insert("provider".to_string(), "openai".to_string());
-        nlp_section.insert("api_key".to_string(), "test-key".to_string());
-
-        // Act
-        let result = DualLLMConfig::from_sections(&user_section, &nlp_section);
-
-        // Assert
-        assert!(result.is_ok());
-        let config = result.unwrap();
-        assert_eq!(config.user_llm.default_params.temperature, 0.8);
-        assert_eq!(config.user_llm.default_params.max_tokens, 2000);
-    }
-}
-
 // Simple coverage tests for uncovered paths
 #[cfg(test)]
 mod coverage_tests {
@@ -919,44 +756,6 @@ mod coverage_tests {
             cloned.default_params.temperature,
             config.default_params.temperature
         );
-    }
-
-    #[test]
-    fn test_dual_config_clone() {
-        // Test verifies DualLLMConfig can be cloned
-        // Ensures dual configuration can be safely duplicated
-
-        // Arrange
-        let user_config = create_test_config("anthropic");
-        let nlp_config = create_test_config("openai");
-        let config = DualLLMConfig::new(user_config, nlp_config);
-
-        // Act
-        let cloned = config.clone();
-
-        // Assert
-        assert_eq!(
-            cloned.user_llm.provider.provider_name(),
-            config.user_llm.provider.provider_name()
-        );
-        assert_eq!(
-            cloned.nlp_llm.provider.provider_name(),
-            config.nlp_llm.provider.provider_name()
-        );
-    }
-
-    #[test]
-    fn test_llm_path_display() {
-        // Test verifies LLMPath can be displayed
-        // Ensures path can be used in logging/debugging
-
-        // Arrange & Act
-        let user_path = format!("{}", LLMPath::User);
-        let nlp_path = format!("{}", LLMPath::Nlp);
-
-        // Assert
-        assert_eq!(user_path, "user");
-        assert_eq!(nlp_path, "nlp");
     }
 
     #[test]
