@@ -69,8 +69,14 @@ use serde::{Deserialize, Serialize};
 
 /// Result type alias for provider operations.
 ///
-/// Uses `anyhow::Error` for flexible error handling across providers.
-pub type Result<T> = std::result::Result<T, anyhow::Error>;
+/// Uses [`LlmError`](crate::LlmError) for structured error handling with
+/// rich metadata (categories, retry info, user messages).
+///
+/// See [`LlmError`](crate::LlmError) for available error variants and helper methods:
+/// - [`is_retryable()`](crate::LlmError::is_retryable): Check if retry makes sense
+/// - [`category()`](crate::LlmError::category): Get error category for routing
+/// - [`user_message()`](crate::LlmError::user_message): Get safe user-facing message
+pub type Result<T> = std::result::Result<T, crate::LlmError>;
 
 /// Definition of a tool/function that the LLM can call.
 ///

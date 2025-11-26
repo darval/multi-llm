@@ -314,7 +314,6 @@ async fn test_custom_retry_policy() {
     client.restore_default_retry_policy(&retry_policy).await;
 
     // If we got here without panic, the API works correctly
-    assert!(true, "Retry policy configuration should work");
 }
 
 #[tokio::test]

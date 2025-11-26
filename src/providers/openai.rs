@@ -117,12 +117,10 @@ impl OpenAIProvider {
 
         let headers = OpenAICompatibleClient::build_auth_headers(
             self.config.api_key.as_ref().unwrap_or(&String::new()),
-        )
-        .map_err(|e| anyhow::anyhow!("Failed to build headers: {}", e))?;
+        )?;
         self.http_client
             .execute_chat_request(&url, &headers, request)
             .await
-            .map_err(|e| anyhow::anyhow!("OpenAI API error: {}", e))
     }
 
     /// Create LLM request business event
@@ -224,9 +222,7 @@ impl OpenAIProvider {
         let duration_ms = start_time.elapsed().as_millis() as u64;
 
         // Parse response
-        let response = self
-            .parse_openai_response(api_response.clone())
-            .map_err(|e| anyhow::anyhow!("Failed to parse response: {}", e))?;
+        let response = self.parse_openai_response(api_response.clone())?;
 
         Ok((
             response,

@@ -203,16 +203,11 @@ impl LMStudioProvider {
 
         // Send to LM Studio API
         let start_time = Instant::now();
-        let api_response = self
-            .send_lmstudio_request(&openai_request)
-            .await
-            .map_err(|e| anyhow::anyhow!("LM Studio API error: {}", e))?;
+        let api_response = self.send_lmstudio_request(&openai_request).await?;
         let duration_ms = start_time.elapsed().as_millis() as u64;
 
         // Parse response
-        let response = self
-            .parse_lmstudio_response(api_response.clone())
-            .map_err(|e| anyhow::anyhow!("Failed to parse response: {}", e))?;
+        let response = self.parse_lmstudio_response(api_response.clone())?;
 
         Ok((
             response,
@@ -247,9 +242,7 @@ impl LlmProvider for LMStudioProvider {
                 Err(e) => {
                     // On error, log error event
                     if let Some(uid) = config.as_ref().and_then(|c| c.user_id.as_ref()) {
-                        if let Some(llm_error) = e.downcast_ref::<LlmError>() {
-                            events.push(self.create_error_event(llm_error, uid));
-                        }
+                        events.push(self.create_error_event(&e, uid));
                     }
                     return Err(e);
                 }

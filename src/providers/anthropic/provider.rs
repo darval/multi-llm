@@ -577,10 +577,7 @@ impl AnthropicProvider {
 
         // Send to Anthropic API
         let start_time = Instant::now();
-        let api_response = self
-            .send_anthropic_request(anthropic_request)
-            .await
-            .map_err(|e| anyhow::anyhow!("Anthropic API error: {}", e))?;
+        let api_response = self.send_anthropic_request(anthropic_request).await?;
         let duration_ms = start_time.elapsed().as_millis() as u64;
 
         // Convert Anthropic response to Response
@@ -699,10 +696,8 @@ impl LlmProvider for AnthropicProvider {
                 Ok(result) => result,
                 Err(e) => {
                     // On error, log error event
-                    if let Some(llm_error) = e.downcast_ref::<LlmError>() {
-                        if let Some(event) = self.create_error_event(llm_error, config.as_ref()) {
-                            events.push(event);
-                        }
+                    if let Some(event) = self.create_error_event(&e, config.as_ref()) {
+                        events.push(event);
                     }
                     return Err(e);
                 }

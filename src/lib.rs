@@ -102,3 +102,50 @@ pub use internals::retry::RetryPolicy;
 pub use internals::events::{event_types, BusinessEvent, EventScope};
 #[cfg(feature = "events")]
 pub use provider::LLMBusinessEvent;
+
+// =============================================================================
+// Helper macro for handling response types with/without events feature
+// =============================================================================
+
+/// Extract the Response from execute_llm results, regardless of events feature.
+///
+/// When the `events` feature is enabled, `execute_llm` returns
+/// `Result<(Response, Vec<LLMBusinessEvent>)>`. Without the feature, it returns
+/// `Result<Response>`. This macro handles both cases uniformly.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use multi_llm::{unwrap_response, UnifiedLLMClient, LlmProvider};
+///
+/// let response = unwrap_response!(client.execute_llm(request, None, None).await?);
+/// println!("Content: {}", response.content);
+/// ```
+///
+/// # With events feature
+///
+/// If you need access to the events, don't use this macro - instead pattern match directly:
+///
+/// ```rust,ignore
+/// #[cfg(feature = "events")]
+/// let (response, events) = client.execute_llm(request, None, None).await?;
+/// ```
+#[cfg(feature = "events")]
+#[macro_export]
+macro_rules! unwrap_response {
+    ($result:expr) => {{
+        let (resp, _events) = $result;
+        resp
+    }};
+}
+
+/// Extract the Response from execute_llm results (non-events version).
+///
+/// See the `events` feature version for full documentation.
+#[cfg(not(feature = "events"))]
+#[macro_export]
+macro_rules! unwrap_response {
+    ($result:expr) => {
+        $result
+    };
+}

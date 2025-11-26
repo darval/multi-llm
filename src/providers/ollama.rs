@@ -209,16 +209,11 @@ impl OllamaProvider {
 
         // Send to Ollama API
         let start_time = Instant::now();
-        let api_response = self
-            .send_ollama_request(&openai_request)
-            .await
-            .map_err(|e| anyhow::anyhow!("Ollama API error: {}", e))?;
+        let api_response = self.send_ollama_request(&openai_request).await?;
         let duration_ms = start_time.elapsed().as_millis() as u64;
 
         // Parse response
-        let response = self
-            .parse_ollama_response(api_response.clone())
-            .map_err(|e| anyhow::anyhow!("Failed to parse response: {}", e))?;
+        let response = self.parse_ollama_response(api_response.clone())?;
 
         Ok((
             response,
@@ -356,10 +351,8 @@ impl LlmProvider for OllamaProvider {
                 Ok(result) => result,
                 Err(e) => {
                     // On error, log error event
-                    if let Some(llm_error) = e.downcast_ref::<LlmError>() {
-                        if let Some(event) = self.create_error_event(llm_error, config.as_ref()) {
-                            events.push(event);
-                        }
+                    if let Some(event) = self.create_error_event(&e, config.as_ref()) {
+                        events.push(event);
                     }
                     return Err(e);
                 }
