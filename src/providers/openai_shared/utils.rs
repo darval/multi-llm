@@ -372,7 +372,7 @@ impl CustomFormatParser {
 
     /// Clean tool call patterns from content as a fallback when parsing fails
     /// This removes obvious tool call patterns to prevent showing raw XML/tags to users
-    fn clean_tool_call_patterns(content: &str) -> String {
+    pub(crate) fn clean_tool_call_patterns(content: &str) -> String {
         let mut cleaned = content.to_string();
 
         // Remove XML tool call patterns (even malformed ones)
@@ -399,7 +399,7 @@ impl CustomFormatParser {
     }
 
     /// Attempt to repair common JSON formatting issues
-    fn attempt_json_repair(text: &str) -> String {
+    pub(crate) fn attempt_json_repair(text: &str) -> String {
         let trimmed = text.trim();
 
         // If it doesn't start with {, return as-is
@@ -420,7 +420,7 @@ impl CustomFormatParser {
     }
 
     /// Count open and close braces in JSON, respecting string contexts
-    fn count_json_braces(text: &str) -> (usize, usize) {
+    pub(crate) fn count_json_braces(text: &str) -> (usize, usize) {
         let mut open_braces = 0;
         let mut close_braces = 0;
         let mut in_string = false;
@@ -444,7 +444,7 @@ impl CustomFormatParser {
     }
 
     /// Add missing closing braces to JSON text
-    fn add_missing_braces(text: &str, missing_count: usize) -> String {
+    pub(crate) fn add_missing_braces(text: &str, missing_count: usize) -> String {
         let mut repaired = text.to_string();
         for _ in 0..missing_count {
             repaired.push('}');
@@ -461,7 +461,7 @@ impl CustomFormatParser {
     }
 
     /// Extract balanced JSON from text, handling nested braces properly
-    fn extract_balanced_json(text: &str) -> Option<(String, usize)> {
+    pub(crate) fn extract_balanced_json(text: &str) -> Option<(String, usize)> {
         let trimmed = text.trim_start();
         if !trimmed.starts_with('{') {
             return None;

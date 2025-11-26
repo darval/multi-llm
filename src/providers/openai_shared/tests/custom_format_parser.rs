@@ -404,3 +404,341 @@ fn test_parse_handles_array_arguments() {
     assert!(match_result.arguments["items"].is_array());
     assert_eq!(match_result.arguments["items"].as_array().unwrap().len(), 5);
 }
+
+// ============================================================================
+// JSON Repair Tests (clean_tool_call_patterns, attempt_json_repair)
+// ============================================================================
+
+#[test]
+fn test_clean_tool_call_patterns_removes_xml_tags() {
+    // Test verifies XML tool call tags are cleaned from content
+    // Fallback when parsing fails to prevent showing raw XML to users
+
+    let content = "Some text <tool_call>{\"broken\": json}</tool_call> more text";
+    let cleaned = CustomFormatParser::clean_tool_call_patterns(content);
+
+    assert!(!cleaned.contains("<tool_call>"));
+    assert!(!cleaned.contains("</tool_call>"));
+    assert!(cleaned.contains("Some text"));
+    assert!(cleaned.contains("more text"));
+}
+
+#[test]
+fn test_clean_tool_call_patterns_removes_deepseek_format() {
+    // Test verifies DeepSeek tool request patterns are cleaned
+
+    let content = "Result: [TOOL_REQUEST]{\"invalid\": data}[END_TOOL_REQUEST] Done";
+    let cleaned = CustomFormatParser::clean_tool_call_patterns(content);
+
+    assert!(!cleaned.contains("[TOOL_REQUEST]"));
+    assert!(!cleaned.contains("[END_TOOL_REQUEST]"));
+    assert!(cleaned.contains("Result:"));
+    assert!(cleaned.contains("Done"));
+}
+
+#[test]
+fn test_clean_tool_call_patterns_removes_tool_call_format() {
+    // Test verifies "Tool call: X with args: {...}" format is cleaned
+
+    let content = "I'll help. Tool call: search with args: {\"query\": \"test\"} Here.";
+    let cleaned = CustomFormatParser::clean_tool_call_patterns(content);
+
+    assert!(!cleaned.contains("Tool call:"));
+    assert!(!cleaned.contains("with args:"));
+    assert!(cleaned.contains("I'll help."));
+    assert!(cleaned.contains("Here."));
+}
+
+#[test]
+fn test_clean_tool_call_patterns_handles_unclosed_xml() {
+    // Test verifies unclosed XML tags are cleaned
+    // Models sometimes don't close tags properly
+
+    let content = "Text <tool_call>incomplete json without closing";
+    let cleaned = CustomFormatParser::clean_tool_call_patterns(content);
+
+    // Should remove everything from <tool_call> onward
+    assert!(!cleaned.contains("<tool_call>"));
+    assert!(cleaned.contains("Text"));
+}
+
+#[test]
+fn test_clean_tool_call_patterns_no_patterns_unchanged() {
+    // Test verifies content without tool patterns is unchanged
+
+    let content = "This is just regular text without any tool calls.";
+    let cleaned = CustomFormatParser::clean_tool_call_patterns(content);
+
+    assert_eq!(cleaned, content);
+}
+
+#[test]
+fn test_clean_tool_call_patterns_empty_string() {
+    // Test verifies empty string handling
+
+    let content = "";
+    let cleaned = CustomFormatParser::clean_tool_call_patterns(content);
+
+    assert_eq!(cleaned, "");
+}
+
+// ============================================================================
+// Balanced JSON Extraction Tests
+// ============================================================================
+
+#[test]
+fn test_extract_balanced_json_simple() {
+    // Test verifies simple JSON extraction
+
+    let text = r#"{"key": "value"} extra text"#;
+    let result = CustomFormatParser::extract_balanced_json(text);
+
+    assert!(result.is_some());
+    let (json_str, end_pos) = result.unwrap();
+    assert_eq!(json_str, r#"{"key": "value"}"#);
+    assert!(end_pos > 0);
+}
+
+#[test]
+fn test_extract_balanced_json_nested() {
+    // Test verifies nested JSON extraction
+
+    let text = r#"{"outer": {"inner": {"deep": true}}} more"#;
+    let result = CustomFormatParser::extract_balanced_json(text);
+
+    assert!(result.is_some());
+    let (json_str, _) = result.unwrap();
+    assert!(json_str.contains("outer"));
+    assert!(json_str.contains("inner"));
+    assert!(json_str.contains("deep"));
+}
+
+#[test]
+fn test_extract_balanced_json_with_braces_in_strings() {
+    // Test verifies braces inside strings don't confuse parser
+
+    let text = r#"{"code": "if (x) { return }"} rest"#;
+    let result = CustomFormatParser::extract_balanced_json(text);
+
+    assert!(result.is_some());
+    let (json_str, _) = result.unwrap();
+    assert!(json_str.contains("if (x) { return }"));
+}
+
+#[test]
+fn test_extract_balanced_json_no_json() {
+    // Test verifies non-JSON text returns None
+
+    let text = "This is not JSON";
+    let result = CustomFormatParser::extract_balanced_json(text);
+
+    assert!(result.is_none());
+}
+
+#[test]
+fn test_extract_balanced_json_unbalanced() {
+    // Test verifies unbalanced braces returns None
+
+    let text = r#"{"key": "value""#; // Missing closing brace
+    let result = CustomFormatParser::extract_balanced_json(text);
+
+    assert!(result.is_none());
+}
+
+#[test]
+fn test_extract_balanced_json_with_leading_whitespace() {
+    // Test verifies leading whitespace is handled
+
+    let text = "   {\"key\": 1}";
+    let result = CustomFormatParser::extract_balanced_json(text);
+
+    assert!(result.is_some());
+    let (json_str, _) = result.unwrap();
+    assert_eq!(json_str, r#"{"key": 1}"#);
+}
+
+// ============================================================================
+// DeepSeek Format Edge Cases
+// ============================================================================
+
+#[test]
+fn test_parse_deepseek_without_end_marker_returns_none() {
+    // Test verifies DeepSeek format without [END_TOOL_REQUEST] marker returns None
+    // The regex pattern requires the end marker for proper matching
+
+    let parser = CustomFormatParser::new();
+    let content = r#"[TOOL_REQUEST]{"name": "test", "arguments": {"x": 1}}"#;
+
+    let result = parser.parse(content).unwrap();
+    // Without [END_TOOL_REQUEST], the pattern doesn't match
+    assert!(result.is_none());
+}
+
+#[test]
+fn test_parse_deepseek_multiline() {
+    // Test verifies DeepSeek format works with multiline JSON
+
+    let parser = CustomFormatParser::new();
+    let content = r#"[TOOL_REQUEST]{
+        "name": "multiline_tool",
+        "arguments": {
+            "param1": "value1",
+            "param2": 42
+        }
+    }[END_TOOL_REQUEST]"#;
+
+    let result = parser.parse(content).unwrap();
+    assert!(result.is_some());
+
+    let match_result = result.unwrap();
+    assert_eq!(match_result.function_name, "multiline_tool");
+    assert_eq!(match_result.arguments["param1"], "value1");
+    assert_eq!(match_result.arguments["param2"], 42);
+}
+
+// ============================================================================
+// JSON Brace Counting Tests
+// ============================================================================
+
+#[test]
+fn test_count_json_braces_simple() {
+    // Test verifies basic brace counting
+
+    let (open, close) = CustomFormatParser::count_json_braces(r#"{"key": "value"}"#);
+    assert_eq!(open, 1);
+    assert_eq!(close, 1);
+}
+
+#[test]
+fn test_count_json_braces_nested() {
+    // Test verifies nested brace counting
+
+    let (open, close) = CustomFormatParser::count_json_braces(r#"{"a": {"b": {"c": 1}}}"#);
+    assert_eq!(open, 3);
+    assert_eq!(close, 3);
+}
+
+#[test]
+fn test_count_json_braces_ignores_braces_in_strings() {
+    // Test verifies braces inside strings are not counted
+
+    let (open, close) = CustomFormatParser::count_json_braces(r#"{"code": "if (x) { } else { }"}"#);
+    // Only the outer {} should be counted, not the ones in the string
+    assert_eq!(open, 1);
+    assert_eq!(close, 1);
+}
+
+#[test]
+fn test_count_json_braces_unbalanced() {
+    // Test verifies unbalanced braces are detected
+
+    let (open, close) = CustomFormatParser::count_json_braces(r#"{"key": "value""#);
+    assert_eq!(open, 1);
+    assert_eq!(close, 0);
+}
+
+#[test]
+fn test_count_json_braces_with_escaped_quotes() {
+    // Test verifies escaped quotes don't break string detection
+
+    let (open, close) = CustomFormatParser::count_json_braces(r#"{"text": "say \"hello\""}"#);
+    assert_eq!(open, 1);
+    assert_eq!(close, 1);
+}
+
+// ============================================================================
+// JSON Repair Tests
+// ============================================================================
+
+#[test]
+fn test_attempt_json_repair_already_valid() {
+    // Test verifies valid JSON is returned unchanged
+
+    let text = r#"{"key": "value"}"#;
+    let repaired = CustomFormatParser::attempt_json_repair(text);
+    assert_eq!(repaired, text);
+}
+
+#[test]
+fn test_attempt_json_repair_missing_one_brace() {
+    // Test verifies single missing brace is added
+
+    let text = r#"{"key": "value""#;
+    let repaired = CustomFormatParser::attempt_json_repair(text);
+    assert_eq!(repaired, r#"{"key": "value"}"#);
+}
+
+#[test]
+fn test_attempt_json_repair_missing_multiple_braces() {
+    // Test verifies multiple missing braces are added
+
+    let text = r#"{"outer": {"inner": "value""#;
+    let repaired = CustomFormatParser::attempt_json_repair(text);
+    assert_eq!(repaired, r#"{"outer": {"inner": "value"}}"#);
+}
+
+#[test]
+fn test_attempt_json_repair_non_json_unchanged() {
+    // Test verifies non-JSON text is returned as-is
+
+    let text = "This is not JSON";
+    let repaired = CustomFormatParser::attempt_json_repair(text);
+    assert_eq!(repaired, text);
+}
+
+#[test]
+fn test_attempt_json_repair_with_whitespace() {
+    // Test verifies leading/trailing whitespace is trimmed and brace added
+
+    let text = "  {\"key\": \"value\"  ";
+    let repaired = CustomFormatParser::attempt_json_repair(text);
+    // Whitespace trimmed, then missing brace detected and added
+    assert_eq!(repaired, r#"{"key": "value"}"#);
+}
+
+#[test]
+fn test_add_missing_braces_single() {
+    // Test verifies single brace is added
+
+    let repaired = CustomFormatParser::add_missing_braces(r#"{"key": "value""#, 1);
+    assert_eq!(repaired, r#"{"key": "value"}"#);
+}
+
+#[test]
+fn test_add_missing_braces_multiple() {
+    // Test verifies multiple braces are added
+
+    let repaired = CustomFormatParser::add_missing_braces(r#"{"a": {"b": 1"#, 2);
+    assert_eq!(repaired, r#"{"a": {"b": 1}}"#);
+}
+
+#[test]
+fn test_add_missing_braces_zero() {
+    // Test verifies zero braces doesn't change text
+
+    let text = r#"{"key": "value"}"#;
+    let repaired = CustomFormatParser::add_missing_braces(text, 0);
+    assert_eq!(repaired, text);
+}
+
+// ============================================================================
+// GPT-OSS Format Edge Cases
+// ============================================================================
+
+#[test]
+fn test_parse_gpt_oss_with_nested_json_arguments() {
+    // Test verifies GPT-OSS format with deeply nested JSON arguments
+
+    let parser = CustomFormatParser::new();
+    let content = r#"commentary to=functions.complex_call <|constrain|>json<|message|>{"nested": {"level": {"deep": {"value": 42}}}}"#;
+
+    let result = parser.parse(content).unwrap();
+    assert!(result.is_some());
+
+    let match_result = result.unwrap();
+    assert_eq!(match_result.function_name, "complex_call");
+    assert_eq!(
+        match_result.arguments["nested"]["level"]["deep"]["value"],
+        42
+    );
+}

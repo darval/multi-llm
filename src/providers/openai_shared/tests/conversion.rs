@@ -920,3 +920,63 @@ fn test_handle_tool_calls_standard_takes_precedence() {
     assert_eq!(result.tool_calls[0].name, "standard_tool");
     assert!(result.cleaned_content.is_none());
 }
+
+// ============================================================================
+// OpenAIUsage Type Conversion Tests
+// ============================================================================
+
+use crate::provider::TokenUsage;
+
+#[test]
+fn test_openai_usage_to_token_usage_conversion() {
+    // Test verifies OpenAIUsage converts correctly to TokenUsage
+    //
+    // Business rule: Token usage from OpenAI API should be directly mappable
+    // to our internal TokenUsage type for consistent tracking
+
+    let openai_usage = OpenAIUsage {
+        prompt_tokens: 100,
+        completion_tokens: 50,
+        total_tokens: 150,
+    };
+
+    let token_usage: TokenUsage = openai_usage.into();
+
+    assert_eq!(token_usage.prompt_tokens, 100);
+    assert_eq!(token_usage.completion_tokens, 50);
+    assert_eq!(token_usage.total_tokens, 150);
+}
+
+#[test]
+fn test_openai_usage_conversion_preserves_zero_values() {
+    // Test verifies zero token counts are preserved
+
+    let openai_usage = OpenAIUsage {
+        prompt_tokens: 0,
+        completion_tokens: 0,
+        total_tokens: 0,
+    };
+
+    let token_usage: TokenUsage = openai_usage.into();
+
+    assert_eq!(token_usage.prompt_tokens, 0);
+    assert_eq!(token_usage.completion_tokens, 0);
+    assert_eq!(token_usage.total_tokens, 0);
+}
+
+#[test]
+fn test_openai_usage_conversion_large_values() {
+    // Test verifies large token counts are handled correctly
+
+    let openai_usage = OpenAIUsage {
+        prompt_tokens: 100_000,
+        completion_tokens: 50_000,
+        total_tokens: 150_000,
+    };
+
+    let token_usage: TokenUsage = openai_usage.into();
+
+    assert_eq!(token_usage.prompt_tokens, 100_000);
+    assert_eq!(token_usage.completion_tokens, 50_000);
+    assert_eq!(token_usage.total_tokens, 150_000);
+}

@@ -5,6 +5,7 @@
 
 mod caching;
 mod conversion;
+mod provider;
 
 // NOTE: Provider HTTP tests are in tests/anthropic_provider_integration_tests.rs
 // These tests use MockServer and are slow, so they don't belong in unit tests

@@ -120,7 +120,7 @@ impl AnthropicProvider {
     }
 
     /// Check if error JSON indicates auth failure
-    fn is_auth_error(error_json: &serde_json::Value) -> bool {
+    pub(crate) fn is_auth_error(error_json: &serde_json::Value) -> bool {
         error_json
             .get("error")
             .and_then(|obj| obj.get("type"))
@@ -132,7 +132,7 @@ impl AnthropicProvider {
     }
 
     /// Parse authentication error from response text
-    fn parse_auth_error(error_text: &str) -> LlmError {
+    pub(crate) fn parse_auth_error(error_text: &str) -> LlmError {
         if let Ok(error_json) = serde_json::from_str::<serde_json::Value>(error_text) {
             if Self::is_auth_error(&error_json) {
                 return LlmError::authentication_failed(
@@ -213,68 +213,6 @@ impl AnthropicProvider {
         );
 
         Ok(api_response)
-    }
-
-    /// Extract balanced JSON from content, handling trailing text
-    /// Returns (json_string, trailing_text_option)
-    #[allow(dead_code)]
-    fn extract_json_from_content(content: &str) -> (Option<String>, Option<String>) {
-        let trimmed = content.trim();
-        if !trimmed.starts_with('{') {
-            return (None, None);
-        }
-
-        let chars: Vec<char> = trimmed.chars().collect();
-        Self::find_json_end(&chars)
-            .map(|end_idx| Self::split_json_and_trailing(&chars, end_idx))
-            .unwrap_or((None, None))
-    }
-
-    fn find_json_end(chars: &[char]) -> Option<usize> {
-        let mut brace_count = 0;
-        let mut in_string = false;
-        let mut escaped = false;
-
-        for (idx, ch) in chars.iter().enumerate() {
-            match ch {
-                '"' if !escaped => in_string = !in_string,
-                '\\' if in_string => escaped = !escaped,
-                '{' if !in_string => brace_count += 1,
-                '}' if !in_string => {
-                    brace_count -= 1;
-                    if brace_count == 0 {
-                        return Some(idx);
-                    }
-                }
-                _ => escaped = false,
-            }
-
-            if *ch != '\\' {
-                escaped = false;
-            }
-        }
-
-        None
-    }
-
-    fn split_json_and_trailing(chars: &[char], end_idx: usize) -> (Option<String>, Option<String>) {
-        let json_str: String = chars[0..=end_idx].iter().collect();
-        let trailing = Self::extract_trailing_text(chars, end_idx);
-        (Some(json_str), trailing)
-    }
-
-    fn extract_trailing_text(chars: &[char], end_idx: usize) -> Option<String> {
-        if end_idx + 1 >= chars.len() {
-            return None;
-        }
-
-        let remaining: String = chars[end_idx + 1..].iter().collect();
-        let trimmed = remaining.trim();
-        if trimmed.is_empty() {
-            None
-        } else {
-            Some(trimmed.to_string())
-        }
     }
 
     /// Internal method for executor pattern - restore default retry policy
@@ -390,7 +328,7 @@ impl AnthropicProvider {
         );
     }
 
-    fn parse_structured_response(
+    pub(crate) fn parse_structured_response(
         &self,
         content: String,
         tool_calls: &[crate::provider::ToolCall],
@@ -416,7 +354,10 @@ impl AnthropicProvider {
         self.parse_json_content(content)
     }
 
-    fn parse_json_content(&self, content: String) -> (String, Option<serde_json::Value>) {
+    pub(crate) fn parse_json_content(
+        &self,
+        content: String,
+    ) -> (String, Option<serde_json::Value>) {
         let json_content = if content.trim_start().starts_with('{') {
             content.clone()
         } else {
@@ -519,7 +460,7 @@ impl AnthropicProvider {
     }
 
     /// Determine if caching should be enabled for this request
-    fn should_enable_caching(&self, config: Option<&RequestConfig>) -> bool {
+    pub(crate) fn should_enable_caching(&self, config: Option<&RequestConfig>) -> bool {
         self.config.enable_prompt_caching
             && config
                 .and_then(|c| c.llm_path.as_ref())

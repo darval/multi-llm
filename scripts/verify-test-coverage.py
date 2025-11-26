@@ -8,34 +8,29 @@ Requirements:
 - cargo-llvm-cov must be installed: cargo install cargo-llvm-cov
 
 Usage:
-    python3 scripts/verify-test-coverage.py <crate-path> [options]
+    python3 scripts/verify-test-coverage.py [options]
 
 Examples:
     # Check coverage for entire crate (unit tests only)
-    python3 scripts/verify-test-coverage.py multi-llm
+    python3 scripts/verify-test-coverage.py
 
     # Check coverage including integration tests
-    python3 scripts/verify-test-coverage.py multi-llm --include-integration
+    python3 scripts/verify-test-coverage.py --include-integration
 
     # Check coverage for specific module (runs only tests matching filter)
-    python3 scripts/verify-test-coverage.py multi-llm --test-filter domain::
+    python3 scripts/verify-test-coverage.py --test-filter providers::
 
     # Custom thresholds
-    python3 scripts/verify-test-coverage.py multi-llm --goal 90 --minimum 80
+    python3 scripts/verify-test-coverage.py --goal 90 --minimum 80
 
     # Generate HTML report
-    python3 scripts/verify-test-coverage.py multi-llm --html
+    python3 scripts/verify-test-coverage.py --html
 
-    # Show per-file coverage details (filtered to specified crate only)
-    # Shows clean paths (e.g., context/types.rs) and crate-specific statistics
-    python3 scripts/verify-test-coverage.py multi-llm --show-files
-
-    # Show per-file coverage for all crates (including dependencies)
-    # Shows full paths (e.g., multi-llm/src/domain/user.rs) and overall statistics
-    python3 scripts/verify-test-coverage.py multi-llm --show-all-files
+    # Show per-file coverage details
+    python3 scripts/verify-test-coverage.py --show-files
 
     # Include integration tests with detailed file view
-    python3 scripts/verify-test-coverage.py multi-llm --include-integration --show-files
+    python3 scripts/verify-test-coverage.py --include-integration --show-files
 
 Exit codes:
     0 - Coverage meets goal threshold
@@ -170,9 +165,9 @@ def run_coverage(crate_path: Path, test_filter: Optional[str], html: bool, show_
         print(f"Error: Crate path {crate_path} does not exist", file=sys.stderr)
         return None
 
+    # For single-crate projects, run directly without --package
     cmd = [
         'cargo', 'llvm-cov',
-        '--package', crate_path.name,
         '--lib',
     ]
 
@@ -206,14 +201,13 @@ def run_coverage(crate_path: Path, test_filter: Optional[str], html: bool, show_
     print()
 
     try:
-        # Set environment for integration tests to reduce LLM token usage
+        # Set environment for integration tests
         test_env = os.environ.copy()
-        if include_integration:
-            test_env['MULTI_LLM_TEST_MODE'] = '1000'  # Reduce context tokens for integration tests
 
+        # Run from the crate directory itself
         result = subprocess.run(
             cmd,
-            cwd=crate_path.parent,
+            cwd=crate_path,
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -543,7 +537,7 @@ def main():
     crate_path = Path(args.crate_path).resolve()
     show_uncovered = args.show_uncovered
     # Auto-enable show_files when show_uncovered is requested
-    show_files = args.show_files or args.show_all_files or show_uncovered
+    show_files = args.show_files or show_uncovered
     output = run_coverage(crate_path, args.test_filter, args.html, show_files, args.include_integration, show_uncovered, args.timeout)
 
     if output is None:
@@ -582,8 +576,8 @@ def main():
         module_filter = extract_module_prefix(args.test_filter)
         if module_filter:
             filtered_cov = calculate_average_coverage(files, module_filter)
-    elif show_files and not args.show_all_files and files:
-        # When showing only crate files (not all files), calculate crate-specific stats
+    elif show_files and files:
+        # Calculate crate-specific stats
         filtered_cov = calculate_filtered_coverage_stats(files, crate_path.name)
         crate_filter_name = crate_path.name
 
@@ -593,11 +587,11 @@ def main():
     # Print per-file coverage if requested or if using filter
     if show_files or args.test_filter:
         if files:
-            print_file_coverage(files, args.show_all_files, module_filter, crate_path.name, uncovered)
+            print_file_coverage(files, False, module_filter, crate_path.name, uncovered)
 
     # Print HTML report location if generated
     if args.html:
-        html_file = crate_path.parent / 'target' / 'llvm-cov' / 'html' / 'index.html'
+        html_file = crate_path / 'target' / 'llvm-cov' / 'html' / 'index.html'
         if html_file.exists():
             print(f"\nHTML report: {html_file}\n")
 
@@ -617,16 +611,18 @@ def create_argument_parser():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s multi-llm
-  %(prog)s multi-llm --test-filter domain::
-  %(prog)s multi-llm --goal 90 --minimum 80 --html
-  %(prog)s multi-llm --show-files
+  %(prog)s
+  %(prog)s --test-filter providers::
+  %(prog)s --goal 90 --minimum 80 --html
+  %(prog)s --show-files
         """
     )
 
     parser.add_argument(
         'crate_path',
-        help='Path to the crate to check (e.g., multi-llm)'
+        nargs='?',
+        default='.',
+        help='Path to the crate to check (default: current directory)'
     )
 
     parser.add_argument(
@@ -660,11 +656,6 @@ Examples:
         help='Show per-file coverage details (filtered to the specified crate)'
     )
 
-    parser.add_argument(
-        '--show-all-files',
-        action='store_true',
-        help='Show all files from all crates (not just the specified crate)'
-    )
 
     parser.add_argument(
         '--show-uncovered',
