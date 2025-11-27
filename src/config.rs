@@ -41,33 +41,6 @@
 //! | Anthropic | [`AnthropicConfig`] | `ANTHROPIC_API_KEY` |
 //! | Ollama | [`OllamaConfig`] | (none, local) |
 //! | LM Studio | [`LMStudioConfig`] | (none, local) |
-//!
-//! # Dual LLM Configuration
-//!
-//! For applications needing separate models for user-facing chat vs. background analysis:
-//!
-//! ```rust,no_run
-//! use multi_llm::{DualLLMConfig, LLMConfig, OpenAIConfig, AnthropicConfig, DefaultLLMParams};
-//!
-//! let dual_config = DualLLMConfig::new(
-//!     // User-facing: Claude for quality
-//!     LLMConfig {
-//!         provider: Box::new(AnthropicConfig {
-//!             api_key: Some("sk-ant-...".to_string()),
-//!             ..Default::default()
-//!         }),
-//!         default_params: DefaultLLMParams::default(),
-//!     },
-//!     // Background NLP: GPT-4 for structured analysis
-//!     LLMConfig {
-//!         provider: Box::new(OpenAIConfig {
-//!             api_key: Some("sk-...".to_string()),
-//!             ..Default::default()
-//!         }),
-//!         default_params: DefaultLLMParams::default(),
-//!     },
-//! );
-//! ```
 
 use crate::error::{LlmError, LlmResult};
 use crate::internals::retry::RetryPolicy;
