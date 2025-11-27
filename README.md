@@ -193,8 +193,7 @@ multi-llm = { version = "0.1", features = ["events"] }
 
 - **[Design Document](docs/DESIGN.md)** - Comprehensive architecture and design decisions
 - **[Architecture Decision Records](docs/adr/)** - Detailed rationale for major decisions
-- **[Phase 2 Plan](docs/PHASE2_PLAN.md)** - Current refactoring tasks
-- **[Phase 3 Plan](docs/PHASE3_PLAN.md)** - Future integration plans
+- **[Phase 3 Plan](docs/PHASE3_PLAN.md)** - myStory migration guide
 
 ## Supported Providers
 
@@ -219,21 +218,16 @@ See [Design Document](docs/DESIGN.md) for detailed philosophy and architecture.
 
 ## Project Status
 
-**Current Phase**: Pre-1.0 Cleanup & Stabilization
+**Version**: 0.1.2 (Production-ready)
 
-**What Works**:
+**Features**:
 - ✅ All provider implementations (OpenAI, Anthropic, Ollama, LM Studio)
 - ✅ Unified message architecture with caching hints
 - ✅ Tool calling support
 - ✅ Async I/O with Tokio
 - ✅ Comprehensive error handling
-
-**Pre-1.0 Tasks** (see [Phase 2 Plan](docs/PHASE2_PLAN.md)):
-- 🔄 Remove legacy naming (`Executor*` → simpler names)
-- 🔄 Feature-gate events system
-- 🔄 Narrow public API surface
-- 🔄 Remove parent project references
-- 🔄 Comprehensive documentation and examples
+- ✅ Events system (feature-gated)
+- ✅ Extended cache support (1-hour Anthropic caching)
 
 ## Requirements
 

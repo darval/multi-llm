@@ -1,8 +1,8 @@
 # multi-llm: Design Document
 
-> **Version**: 1.0
+> **Version**: 1.1
 > **Status**: Living Document
-> **Last Updated**: 2025-11-25
+> **Last Updated**: 2025-11-27
 
 ## Table of Contents
 
@@ -18,6 +18,9 @@
 10. [Stability & Versioning](#10-stability--versioning)
 11. [Future Directions](#11-future-directions)
 12. [Appendices](#appendices)
+    - [A: Architecture Decision Records](#appendix-a-architecture-decision-records)
+    - [B: Glossary](#appendix-b-glossary)
+    - [C: Contributing](#appendix-c-contributing)
 
 ---
 
@@ -231,34 +234,18 @@ let msg = Message::user("What is the capital of France?")
 
 **Purpose**: Define contract that all provider implementations must satisfy.
 
-**Current State** (legacy naming to be removed):
-```rust
-#[async_trait]
-pub trait ExecutorLLMProvider: Send + Sync {
-    async fn execute_llm(
-        &self,
-        request: Request,
-        config: Option<RequestConfig>,
-    ) -> Result<Response, LlmError>;
-
-    fn provider_name(&self) -> &'static str;
-}
-```
-
-**Target State** (post-cleanup):
 ```rust
 #[async_trait]
 pub trait LlmProvider: Send + Sync {
-    async fn execute(
+    async fn execute_llm(
         &self,
-        request: Request,
+        request: UnifiedLLMRequest,
         config: Option<RequestConfig>,
+        label: Option<&str>,
     ) -> Result<Response, LlmError>;
 
     fn provider_name(&self) -> &'static str;
 
-    // Optional: Provider-specific capabilities
-    fn supports_streaming(&self) -> bool { false }
     fn supports_caching(&self) -> bool { false }
 }
 ```
@@ -673,18 +660,6 @@ if !response.tool_calls.is_empty() {
 
 ### Error Hierarchy
 
-**Current** (legacy naming):
-```rust
-pub enum LlmError {
-    ConfigurationError(String),
-    NetworkError(reqwest::Error),
-    ProviderError { provider: String, status_code: Option<u16>, message: String },
-    ValidationError(String),
-    ConversionError(String),
-}
-```
-
-**Target** (after cleanup):
 ```rust
 #[derive(Debug, thiserror::Error)]
 pub enum LlmError {
@@ -692,14 +667,13 @@ pub enum LlmError {
     Configuration(String),
 
     #[error("Network error: {0}")]
-    Network(#[from] reqwest::Error),
+    Network(String),
 
     #[error("Provider {provider} error (status {status_code:?}): {message}")]
     Provider {
         provider: String,
         status_code: Option<u16>,
         message: String,
-        retry_after: Option<Duration>,
     },
 
     #[error("Validation error: {0}")]
@@ -708,13 +682,17 @@ pub enum LlmError {
     #[error("Response parse error: {0}")]
     ResponseParse(String),
 
-    #[error("Rate limit exceeded (retry after {retry_after:?})")]
-    RateLimit {
-        retry_after: Option<Duration>,
-    },
+    #[error("Rate limit exceeded")]
+    RateLimit { retry_after: Option<Duration> },
 
     #[error("Authentication failed: {0}")]
     Authentication(String),
+
+    #[error("Timeout: {0}")]
+    Timeout(String),
+
+    #[error("Circuit breaker open for provider: {0}")]
+    CircuitBreakerOpen(String),
 }
 
 impl LlmError {
@@ -722,13 +700,13 @@ impl LlmError {
         matches!(self,
             LlmError::Network(_) |
             LlmError::RateLimit { .. } |
+            LlmError::Timeout(_) |
             LlmError::Provider { status_code: Some(500..=599), .. }
         )
     }
 
     pub fn retry_after(&self) -> Option<Duration> {
         match self {
-            LlmError::Provider { retry_after, .. } => *retry_after,
             LlmError::RateLimit { retry_after } => *retry_after,
             _ => None,
         }
@@ -1012,12 +990,11 @@ Following [SemVer 2.0](https://semver.org/):
 
 ### API Evolution Strategy
 
-**Before 1.0** (cleanup phase):
-1. Remove legacy naming (`Executor*` → simpler names)
-2. Remove parent project references (`MyStoryError` → `LlmError`)
-3. Narrow public API surface (hide internals)
-4. Feature-gate events system
-5. Stabilize core types (`Message`, `Response`, `LlmError`)
+**Current State (0.1.x)**:
+- Public API stabilized with clean naming
+- Events system feature-gated
+- Core types finalized (`UnifiedMessage`, `Response`, `LlmError`)
+- Ready for production use
 
 **After 1.0**:
 - Public types frozen (only additive changes)
@@ -1118,28 +1095,7 @@ Detailed rationale for major architectural decisions:
 - [ADR-005: Events System Design](./adr/005-events-system.md)
 - [ADR-006: Async-Only API](./adr/006-async-only-api.md)
 
-### Appendix B: Migration Guide (Pre-1.0 Cleanup)
-
-**For users of 0.1.x versions**:
-
-| Old Name (0.1.x) | New Name (1.0) | Notes |
-|------------------|----------------|-------|
-| `ExecutorLLMProvider` | `LlmProvider` | Trait renamed |
-| `ExecutorLLMRequest` | `Request` | Type simplified |
-| `ExecutorLLMResponse` | `Response` | Type simplified |
-| `ExecutorLLMConfig` | `RequestConfig` | Type renamed |
-| `ExecutorTool` | `Tool` | Type simplified |
-| `ExecutorTokenUsage` | `TokenUsage` | Type simplified |
-| `MyStoryError` trait | Removed | Use `LlmError` directly |
-| `AgentContext` | Removed | Not library concern |
-| `BusinessEvent` | Feature-gated | Requires `features = ["events"]` |
-
-**Breaking changes**:
-- Events no longer returned in response by default (enable with `features = ["events"]`)
-- Several internal modules made private (if you imported from `::retry` or `::tokens`, this breaks)
-- Some duplicate types removed (use canonical versions)
-
-### Appendix C: Glossary
+### Appendix B: Glossary
 
 - **Message**: Provider-agnostic representation of LLM conversation turn
 - **Provider**: Implementation of LLM API client (OpenAI, Anthropic, etc.)
@@ -1149,7 +1105,7 @@ Detailed rationale for major architectural decisions:
 - **Response**: Unified response type containing LLM output
 - **Events**: Optional structured logging of LLM operations
 
-### Appendix D: Contributing
+### Appendix C: Contributing
 
 When contributing to this project:
 
@@ -1167,4 +1123,4 @@ For detailed contribution guidelines, see [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 **Document Maintenance**: This document should be updated when making architectural changes. Create new ADRs for new major decisions. Keep examples up-to-date with actual API.
 
-**Last Reviewed**: 2025-11-25
+**Last Reviewed**: 2025-11-27
