@@ -30,7 +30,7 @@ enum LLMProvider {
 /// # Quick Start
 ///
 /// ```rust,no_run
-/// use multi_llm::{UnifiedLLMClient, LLMConfig, UnifiedMessage, UnifiedLLMRequest, LlmProvider};
+/// use multi_llm::{unwrap_response, UnifiedLLMClient, LLMConfig, UnifiedMessage, UnifiedLLMRequest, LlmProvider};
 ///
 /// # async fn example() -> anyhow::Result<()> {
 /// // Create client from environment variables
@@ -43,7 +43,7 @@ enum LLMProvider {
 /// ]);
 ///
 /// // Execute the request
-/// let response = client.execute_llm(request, None, None).await?;
+/// let response = unwrap_response!(client.execute_llm(request, None, None).await?);
 /// println!("Response: {}", response.content);
 /// # Ok(())
 /// # }
@@ -70,7 +70,7 @@ enum LLMProvider {
 /// # Tool Calling
 ///
 /// ```rust,no_run
-/// use multi_llm::{UnifiedLLMClient, UnifiedMessage, UnifiedLLMRequest, RequestConfig, Tool, ToolChoice, LlmProvider};
+/// use multi_llm::{unwrap_response, UnifiedLLMClient, UnifiedMessage, UnifiedLLMRequest, RequestConfig, Tool, ToolChoice, LlmProvider};
 ///
 /// # async fn example(client: UnifiedLLMClient) -> anyhow::Result<()> {
 /// // Define a tool
@@ -96,7 +96,7 @@ enum LLMProvider {
 ///     ..Default::default()
 /// };
 ///
-/// let response = client.execute_llm(request, None, Some(config)).await?;
+/// let response = unwrap_response!(client.execute_llm(request, None, Some(config)).await?);
 ///
 /// // Check for tool calls
 /// if !response.tool_calls.is_empty() {

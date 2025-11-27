@@ -651,7 +651,7 @@ pub struct ToolCallingRound {
 /// [`UnifiedLLMClient`](crate::UnifiedLLMClient) which wraps all providers:
 ///
 /// ```rust,no_run
-/// use multi_llm::{UnifiedLLMClient, LLMConfig, UnifiedMessage, UnifiedLLMRequest, LlmProvider};
+/// use multi_llm::{unwrap_response, UnifiedLLMClient, LLMConfig, UnifiedMessage, UnifiedLLMRequest, LlmProvider};
 ///
 /// # async fn example() -> anyhow::Result<()> {
 /// let config = LLMConfig::from_env()?;
@@ -661,7 +661,7 @@ pub struct ToolCallingRound {
 ///     UnifiedMessage::user("Hello!")
 /// ]);
 ///
-/// let response = client.execute_llm(request, None, None).await?;
+/// let response = unwrap_response!(client.execute_llm(request, None, None).await?);
 /// println!("Response: {}", response.content);
 /// # Ok(())
 /// # }
