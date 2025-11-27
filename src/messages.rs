@@ -87,6 +87,7 @@ use std::collections::HashMap;
 /// let msg = UnifiedMessage::user("Hello!");
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum MessageRole {
     /// System instructions that guide the model's behavior.
     ///
@@ -160,6 +161,7 @@ impl std::fmt::Display for MessageRole {
 /// };
 /// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum MessageContent {
     /// Plain text content.
     ///
@@ -252,6 +254,7 @@ impl std::fmt::Display for MessageContent {
 /// | ToolResult | 26 | No |
 /// | Current | 30 (lowest) | No |
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum MessageCategory {
     /// Core system prompts and instructions.
     ///
@@ -330,6 +333,7 @@ pub enum MessageCategory {
 ///
 /// See: <https://platform.claude.com/docs/en/build-with-claude/prompt-caching>
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[non_exhaustive]
 pub enum CacheType {
     /// Ephemeral cache (5-minute TTL, 1.25x write cost)
     ///

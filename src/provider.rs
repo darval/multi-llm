@@ -535,6 +535,15 @@ pub struct TokenUsage {
 /// }
 /// # }
 /// ```
+///
+/// # Note on Trait Implementations
+///
+/// This type intentionally omits `Serialize`, `Deserialize`, and `PartialEq`:
+/// - `structured_response` contains arbitrary `serde_json::Value` that may not round-trip cleanly
+/// - `raw_body` is provider-specific debug data not meant for serialization
+/// - Equality comparison on JSON values can be surprising (object key ordering, number precision)
+///
+/// If you need to serialize responses, extract the specific fields you need.
 #[derive(Debug, Clone)]
 pub struct Response {
     /// Primary text content of the response.

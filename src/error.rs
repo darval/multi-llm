@@ -76,7 +76,8 @@ use thiserror::Error;
 ///     matches!(err.category(), ErrorCategory::Internal | ErrorCategory::External)
 /// }
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[non_exhaustive]
 pub enum ErrorCategory {
     /// Expected business logic outcomes (not typically errors).
     ///
@@ -88,6 +89,7 @@ pub enum ErrorCategory {
     ///
     /// The LLM provider or network had an issue. May be transient
     /// or indicate a provider outage.
+    #[default]
     External,
 
     /// Internal system errors (bugs, invariant violations).
@@ -112,7 +114,8 @@ pub enum ErrorCategory {
 /// Severity level for logging and alerting decisions.
 ///
 /// Use [`LlmError::severity()`] to get the severity for any error.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[non_exhaustive]
 pub enum ErrorSeverity {
     /// System is unusable or data integrity is at risk.
     ///
@@ -122,6 +125,7 @@ pub enum ErrorSeverity {
     /// Action failed but system is stable.
     ///
     /// Should be logged and investigated but not urgent.
+    #[default]
     Error,
 
     /// Unexpected but recoverable situation.
@@ -154,6 +158,7 @@ pub enum ErrorSeverity {
 /// };
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub enum UserErrorCategory {
     /// User needs to complete a prerequisite action.
     ///
@@ -246,6 +251,7 @@ pub type LlmResult<T> = std::result::Result<T, LlmError>;
 /// | `ToolExecutionFailed` | External | No |
 /// | `SchemaValidationFailed` | Client | No |
 #[derive(Error, Debug)]
+#[non_exhaustive]
 pub enum LlmError {
     /// The specified provider is not supported.
     ///

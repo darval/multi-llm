@@ -90,6 +90,7 @@ fn demonstrate_error_routing() {
             ErrorCategory::External => "Log and alert ops team",
             ErrorCategory::Internal => "Log, alert, investigate bug",
             ErrorCategory::BusinessLogic => "Handle as expected flow",
+            _ => "Unknown category - update error handling",
         };
 
         println!("Error: {}", error);
