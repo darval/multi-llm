@@ -738,7 +738,7 @@ LlmError::Provider {
 }
 ```
 
-**See**: [ADR-004: Error Handling Strategy](./adr/004-error-handling.md)
+**See**: [ADR-004: Error Handling Strategy](./adr/004-error-handling-strategy.md)
 
 ---
 
@@ -1091,9 +1091,9 @@ Detailed rationale for major architectural decisions:
 - [ADR-001: Unified Message Architecture](./adr/001-unified-message-architecture.md)
 - [ADR-002: Provider Trait Design](./adr/002-provider-trait-design.md)
 - [ADR-003: Caching Hints Architecture](./adr/003-caching-hints.md)
-- [ADR-004: Error Handling Strategy](./adr/004-error-handling.md)
+- [ADR-004: Error Handling Strategy](./adr/004-error-handling-strategy.md)
 - [ADR-005: Events System Design](./adr/005-events-system.md)
-- [ADR-006: Async-Only API](./adr/006-async-only-api.md)
+- [ADR-006: Public API Stability](./adr/006-public-api-stability.md)
 
 ### Appendix B: Glossary
 
@@ -1116,8 +1116,6 @@ When contributing to this project:
 5. **Document public APIs** with rustdoc comments
 6. **No panics** in library code (return `Result` everywhere)
 7. **Use `log_*!` macros** for logging (not `println!` or direct `tracing` macros)
-
-For detailed contribution guidelines, see [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ---
 

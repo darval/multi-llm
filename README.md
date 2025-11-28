@@ -3,7 +3,7 @@
 > Unified multi-provider LLM client library for Rust
 
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
-[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 A type-safe, async-first Rust library providing a unified interface for multiple Large Language Model providers. Write your code once, switch providers with a configuration change.
 
@@ -193,7 +193,6 @@ multi-llm = { version = "0.1", features = ["events"] }
 
 - **[Design Document](docs/DESIGN.md)** - Comprehensive architecture and design decisions
 - **[Architecture Decision Records](docs/adr/)** - Detailed rationale for major decisions
-- **[Phase 3 Plan](docs/PHASE3_PLAN.md)** - myStory migration guide
 
 ## Supported Providers
 
@@ -218,7 +217,7 @@ See [Design Document](docs/DESIGN.md) for detailed philosophy and architecture.
 
 ## Project Status
 
-**Version**: 0.1.2 (Production-ready)
+**Version**: 0.2.1
 
 **Features**:
 - ✅ All provider implementations (OpenAI, Anthropic, Ollama, LM Studio)
@@ -268,7 +267,7 @@ Contributions welcome! Before contributing:
 4. Add tests for new functionality
 5. No `println!` in library code - use internal logging macros
 
-See [Appendix D: Contributing](docs/DESIGN.md#appendix-d-contributing) for detailed guidelines.
+See [Appendix C: Contributing](docs/DESIGN.md#appendix-c-contributing) for detailed guidelines.
 
 ## Compatibility
 
@@ -276,7 +275,7 @@ Works with projects using any Rust edition (2015, 2018, 2021, 2024).
 
 ## License
 
-MIT OR Apache-2.0
+Apache-2.0
 
 ## Acknowledgments
 
