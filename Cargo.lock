@@ -920,7 +920,7 @@ dependencies = [
 
 [[package]]
 name = "multi-llm"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "anyhow",
  "async-trait",
