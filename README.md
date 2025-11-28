@@ -217,7 +217,7 @@ See [Design Document](docs/DESIGN.md) for detailed philosophy and architecture.
 
 ## Project Status
 
-**Version**: 0.3.1
+**Version**: 0.3.2
 
 **Features**:
 - ✅ All provider implementations (OpenAI, Anthropic, Ollama, LM Studio)
