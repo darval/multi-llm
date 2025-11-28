@@ -1,6 +1,6 @@
 [package]
 name = "multi-llm"
-version = "0.1.2"
+version = "0.2.0"
 edition = "2021"
 rust-version = "1.75"
 description = "Unified multi-provider LLM client with support for OpenAI, Anthropic, Ollama, and LMStudio"
