@@ -2,34 +2,9 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.0] - 2025-11-28
 
-## [0.3.2] - 2025-11-28
-
-## [0.3.1] - 2025-11-28
-
-## [0.3.0] - 2025-11-28
-
-### Added
-
-- Added crates.io publish wokflow
-
-### Changed
-
-- Update installation examples to current version (0.2)
-## [0.2.1] - 2025-11-28
-
-### Added
-
-- GitHub mirror workflow for public release pipeline
-- Automated release script with semver analysis
-
-### Fixed
-
-- CI workflow compatibility with Gitea Actions runner
-
-## [0.2.0] - 2025-11-28
-
-Initial public release.
+First stable release.
 
 ### Features
 
@@ -45,4 +20,10 @@ Initial public release.
 
 - Comprehensive design documentation
 - Architecture decision records (ADRs)
-- Runnable examples with `unwrap_response!` macro
+- 9 runnable examples covering all major use cases
+- Full rustdoc coverage
+
+### Infrastructure
+
+- Automated release pipeline (Gitea CI → GitHub mirror → crates.io)
+- GitHub Actions for publishing and release creation

@@ -283,4 +283,4 @@ Extracted from production use in myStory, refined as a standalone library.
 
 ---
 
-**Status**: Pre-1.0 (Breaking changes expected before 1.0 release)
+**Status**: 1.0 Stable
