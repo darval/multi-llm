@@ -217,7 +217,7 @@ See [Design Document](docs/DESIGN.md) for detailed philosophy and architecture.
 
 ## Project Status
 
-**Version**: 0.3.2
+**Version**: 1.0.0
 
 **Features**:
 - ✅ All provider implementations (OpenAI, Anthropic, Ollama, LM Studio)
@@ -238,10 +238,10 @@ See [Design Document](docs/DESIGN.md) for detailed philosophy and architecture.
 
 ```toml
 [dependencies]
-multi-llm = "0.3"
+multi-llm = "1.0"
 
 # With events feature
-multi-llm = { version = "0.3", features = ["events"] }
+multi-llm = { version = "1.0", features = ["events"] }
 ```
 
 ## Testing
