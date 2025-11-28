@@ -238,10 +238,10 @@ See [Design Document](docs/DESIGN.md) for detailed philosophy and architecture.
 
 ```toml
 [dependencies]
-multi-llm = "0.1"
+multi-llm = "0.2"
 
 # With events feature
-multi-llm = { version = "0.1", features = ["events"] }
+multi-llm = { version = "0.2", features = ["events"] }
 ```
 
 ## Testing
