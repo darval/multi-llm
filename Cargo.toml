@@ -6,6 +6,7 @@ rust-version = "1.75"
 description = "Unified multi-provider LLM client with support for OpenAI, Anthropic, Ollama, and LMStudio"
 license = "Apache-2.0"
 repository = "https://github.com/darval/multi-llm"
+documentation = "https://docs.rs/multi-llm"
 keywords = ["llm", "openai", "anthropic", "ai", "unified"]
 categories = ["api-bindings", "asynchronous"]
 authors = ["Rick Duff <rgduff@gmail.com>"]
